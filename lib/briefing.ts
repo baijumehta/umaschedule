@@ -1,4 +1,4 @@
-import { classesFor, displayTitle } from "./classes";
+import { classById, classesFor, displayTitle, whenLabel } from "./classes";
 import {
   addDays, collectRange, dayInfo, dow, DOW_SHORT, eventsFor, fmtDate, fmtTime,
 } from "./schedule";
@@ -59,7 +59,9 @@ export function briefingText(
     // An all-day item is the one whose timing is unresolved, so its note
     // ("schedule to be announced") is the part actually worth carrying.
     const note = ev.notes ? ` — ${ev.notes}` : "";
-    lines.push(`${label}: ${displayTitle(ev)}${note}`);
+    // A test belongs to a period, so say which one rather than "all day".
+    const where = classById(ev.classId) ? ` (${whenLabel(ev)})` : "";
+    lines.push(`${label}: ${displayTitle(ev)}${where}${note}`);
   }
 
   for (const ev of timed) {

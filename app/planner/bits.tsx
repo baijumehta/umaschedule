@@ -1,7 +1,7 @@
 "use client";
 
-import { classById, displayTitle } from "@/lib/classes";
-import { CATEGORIES, fmtRange } from "@/lib/schedule";
+import { classById, displayTitle, whenLabel } from "@/lib/classes";
+import { CATEGORIES } from "@/lib/schedule";
 import type { DayInfo, PlannerEvent } from "@/lib/types";
 
 /** The single most useful fact about a school day: which block it runs. */
@@ -27,7 +27,7 @@ export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId:
 
   return (
     <div className="ev">
-      <div className="ev-time mono">{ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}</div>
+      <div className="ev-time mono">{whenLabel(ev)}</div>
       <div className="ev-main">
         <div className="ev-title">
           <CatDot cat={ev.cat} />

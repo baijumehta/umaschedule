@@ -1,6 +1,6 @@
 "use client";
 
-import { classesFor, classById, displayTitle } from "@/lib/classes";
+import { classesFor, classById, displayTitle, whenLabel } from "@/lib/classes";
 import {
   addDays, breakSpan, collectRange, dayInfo, dow, DOW_NAMES, DOW_SHORT,
   eventsFor, fmtDate, fmtRange, nextSchoolDay, TERM_END, toMinutes,
@@ -91,6 +91,7 @@ export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
                 <div className="due-title">{displayTitle(ev)}</div>
                 <div className="due-meta">
                   {ev.cat === "test" ? "Test" : "Project due"}
+                  {classById(ev.classId) && ` · ${whenLabel(ev)}`}
                   {classById(ev.classId) && !classesFor(today).some((c) => c.id === ev.classId) && (
                     <span className="due-flag">
                       {" · "}that class does not meet today
@@ -150,9 +151,7 @@ export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
           <div className="timeline">
             {tomorrowItems.map((ev) => (
               <div className="tl" key={ev.id}>
-                <span className="tl-time mono">
-                  {ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}
-                </span>
+                <span className="tl-time mono">{whenLabel(ev)}</span>
                 <span className="tl-rail" style={{ background: railFor(ev) }} />
                 <span className="tl-main">
                   <span className="tl-title">{displayTitle(ev)}</span>

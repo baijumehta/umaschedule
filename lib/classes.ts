@@ -15,7 +15,7 @@
  * instead, and stay out of the calendar feed until real times exist.
  */
 
-import { dayInfo } from "./schedule";
+import { dayInfo, fmtRange } from "./schedule";
 import type { ISODate, PlannerEvent, StoredEvent } from "./types";
 
 export interface SchoolClass {
@@ -62,4 +62,18 @@ export function classMeetsOn(classId: string, date: ISODate): boolean {
 export function displayTitle(ev: StoredEvent | PlannerEvent): string {
   const cls = classById((ev as StoredEvent).classId ?? (ev as PlannerEvent).classId);
   return cls ? `${cls.name} — ${ev.title}` : ev.title;
+}
+
+/**
+ * When a thing happens, in the most precise terms actually known.
+ *
+ * A test sits inside its class period, not across the whole day — but without
+ * the school's bell schedule there is no honest clock time to give it. Naming
+ * the period says when it falls, in the school's own terms, and stops short of
+ * inventing a time. Supply bell times and this becomes a real range.
+ */
+export function whenLabel(ev: PlannerEvent | StoredEvent): string {
+  if (!ev.allDay) return fmtRange(ev.start, ev.end);
+  const cls = classById((ev as StoredEvent).classId ?? (ev as PlannerEvent).classId);
+  return cls ? `period ${cls.period}` : "all day";
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HEADER } from "@/lib/auth";
-import { classById } from "@/lib/classes";
+import { classById, whenLabel } from "@/lib/classes";
 import { CATEGORIES, DOW_SHORT, dow, fmtDate, fmtRange } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
 import { readKey } from "./api";
@@ -200,7 +200,7 @@ export function QuickAdd({ today, events, onSave, onTweak }: Props) {
                 <div className="qa-when mono">
                   {DOW_SHORT[dow(ev.date)]} {fmtDate(ev.date, true)}
                   {" · "}
-                  {ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}
+                  {whenLabel(ev)}
                   {ev.repeat === "weekly" && ` · weekly until ${fmtDate(ev.until)}`}
                   {ev.loc && ` · ${ev.loc}`}
                 </div>
