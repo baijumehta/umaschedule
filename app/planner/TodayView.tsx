@@ -42,6 +42,11 @@ export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
   const nextDay = nextSchoolDay(info.school ? today : addDays(today, -1));
   const showNext = nextDay && nextDay !== today;
 
+  // The next-school-day panel can jump over a weekend, so an 8am Sunday meeting
+  // would otherwise appear nowhere on the one screen she checks each morning.
+  const tomorrow = addDays(today, 1);
+  const tomorrowItems = eventsFor(tomorrow, events, { school: false });
+
   const busyMinutes = timed.reduce((t, e) => t + (toMinutes(e.end) - toMinutes(e.start)), 0);
   const brk = breakSpan(today);
 
@@ -132,6 +137,32 @@ export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
           </div>
         )}
       </section>
+
+      {/* ---- tomorrow, which the next-school-day panel can skip past ---- */}
+      {tomorrowItems.length > 0 && (
+        <section className="panel">
+          <div className="brief-bar">
+            <p className="eyebrow" style={{ margin: 0 }}>Tomorrow</p>
+            <span className="brief-count mono">
+              {DOW_SHORT[dow(tomorrow)]} {fmtDate(tomorrow)}
+            </span>
+          </div>
+          <div className="timeline">
+            {tomorrowItems.map((ev) => (
+              <div className="tl" key={ev.id}>
+                <span className="tl-time mono">
+                  {ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}
+                </span>
+                <span className="tl-rail" style={{ background: railFor(ev) }} />
+                <span className="tl-main">
+                  <span className="tl-title">{displayTitle(ev)}</span>
+                  {ev.loc && <span className="tl-loc">{ev.loc}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---- what is bearing down ---- */}
       <section className="panel">
