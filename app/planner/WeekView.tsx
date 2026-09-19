@@ -1,5 +1,6 @@
 "use client";
 
+import { classesFor } from "@/lib/classes";
 import {
   addDays, breakSpan, dayInfo, dow, DOW_NAMES, eventsFor, fmtDate, mondayOf, D,
 } from "@/lib/schedule";
@@ -65,6 +66,15 @@ export function WeekView({ weekStart, today, events, onShift, onToday, onEdit }:
               </div>
 
               <div className="day-body">
+                {info.school && (
+                  <div className="classes-strip">
+                    {classesFor(date).map((c) => (
+                      <span className="cstrip" key={c.id}>
+                        <b className="mono">{c.period}</b> {c.short}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {list.length === 0 ? (
                   <div className="day-empty">{info.school ? "Nothing after school." : "Open."}</div>
                 ) : (

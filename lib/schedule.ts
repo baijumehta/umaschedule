@@ -131,13 +131,20 @@ export const CATEGORIES: Record<Category, { label: string; cssVar: string }> = {
   act: { label: "ACT prep", cssVar: "--c-act" },
   study: { label: "Study group", cssVar: "--c-study" },
   social: { label: "Social", cssVar: "--c-social" },
+  test: { label: "Test", cssVar: "--c-test" },
+  project: { label: "Project", cssVar: "--c-project" },
   email: { label: "Email check", cssVar: "--c-email" },
   school: { label: "School", cssVar: "--c-school" },
   other: { label: "Other", cssVar: "--c-other" },
 };
 
 /** Categories Uma can pick when adding something. */
-export const ADDABLE: Category[] = ["math", "act", "study", "social", "lax", "piano", "other"];
+export const ADDABLE: Category[] = [
+  "test", "project", "math", "act", "study", "social", "lax", "piano", "other",
+];
+
+/** Categories that describe a day rather than a slot in it. */
+export const ALL_DAY_BY_DEFAULT: Category[] = ["test", "project"];
 
 export const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 export const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -354,7 +361,7 @@ export function customFor(date: ISODate, items: StoredEvent[]): PlannerEvent[] {
     out.push({
       id: ev.id + "-" + date, sourceId: ev.id, date, cat: ev.cat, title: ev.title,
       start: ev.start, end: ev.end, loc: ev.loc ?? "", notes: ev.notes ?? "",
-      fixed: false, allDay: false,
+      fixed: false, allDay: Boolean(ev.allDay), classId: ev.classId ?? "",
     });
   }
   return out;
@@ -404,9 +411,13 @@ export function collectRange(
 
 /** Overlaps between a candidate event and everything already on those days. */
 export function findConflicts(
-  candidate: Pick<StoredEvent, "id" | "date" | "start" | "end" | "repeat" | "days" | "until">,
+  candidate: Pick<StoredEvent, "id" | "date" | "start" | "end" | "repeat" | "days" | "until"> &
+    Partial<Pick<StoredEvent, "allDay">>,
   items: StoredEvent[],
 ): { date: ISODate; with: PlannerEvent }[] {
+  // A test or a due date occupies the whole day, so it cannot clash with a slot.
+  if (candidate.allDay) return [];
+
   const hits: { date: ISODate; with: PlannerEvent }[] = [];
   const from = toMinutes(candidate.start);
   const to = toMinutes(candidate.end);

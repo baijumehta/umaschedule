@@ -7,7 +7,9 @@ import type { Category } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALL: Category[] = ["lax", "piano", "math", "act", "study", "social", "email", "other"];
+const ALL: Category[] = [
+  "lax", "piano", "math", "act", "study", "social", "test", "project", "email", "other",
+];
 
 /**
  * The live calendar feed — the point of the whole backend.

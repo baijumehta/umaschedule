@@ -11,6 +11,8 @@ export type Category =
   | "act"
   | "study"
   | "social"
+  | "test"
+  | "project"
   | "email"
   | "school"
   | "other";
@@ -22,8 +24,13 @@ export interface StoredEvent {
   cat: Category;
   /** For a one-off, the date it happens. For a weekly repeat, the first date it may occur. */
   date: ISODate;
+  /** Empty for an all-day item such as a test or a project deadline. */
   start: ClockTime;
   end: ClockTime;
+  /** A test or a due date occupies a day, not a slot. */
+  allDay: boolean;
+  /** Which course a test or project belongs to. Empty for anything else. */
+  classId: string;
   loc: string;
   notes: string;
   repeat: "none" | "weekly";
@@ -49,6 +56,8 @@ export interface PlannerEvent {
   allDay: boolean;
   /** For a stored event, the row it came from — a weekly event has many days, one row. */
   sourceId?: string;
+  /** Carried through from the stored row so the UI can name the course. */
+  classId?: string;
 }
 
 export interface DayInfo {

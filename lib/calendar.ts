@@ -6,6 +6,7 @@
  *   - CSV, in the column layout Google Calendar's importer expects.
  */
 
+import { displayTitle } from "./classes";
 import { addDays, CATEGORIES, D } from "./schedule";
 import type { PlannerEvent } from "./types";
 
@@ -110,7 +111,8 @@ export function buildIcs(events: PlannerEvent[], opts: IcsOptions = {}): string 
       lines.push(`DTEND;TZID=${TZID}:${d}T${clock(ev.end)}`);
     }
 
-    lines.push(fold("SUMMARY:" + escapeText(ev.title)));
+    // A test reads as "AP Biology — Unit 3 exam", never a bare title with no subject.
+    lines.push(fold("SUMMARY:" + escapeText(displayTitle(ev))));
     if (ev.loc) lines.push(fold("LOCATION:" + escapeText(ev.loc)));
     if (ev.notes) lines.push(fold("DESCRIPTION:" + escapeText(ev.notes)));
     lines.push(fold("CATEGORIES:" + escapeText(CATEGORIES[ev.cat].label)));
@@ -164,9 +166,10 @@ export function buildCsv(events: PlannerEvent[]): string {
 
   for (const ev of events) {
     const description = [ev.notes, CATEGORIES[ev.cat].label].filter(Boolean).join(" — ");
+    const subject = displayTitle(ev);
     rows.push(ev.allDay
-      ? [ev.title, usDate(ev.date), "", usDate(ev.date), "", "True", description, ""]
-      : [ev.title, usDate(ev.date), usTime(ev.start), usDate(ev.date), usTime(ev.end),
+      ? [subject, usDate(ev.date), "", usDate(ev.date), "", "True", description, ""]
+      : [subject, usDate(ev.date), usTime(ev.start), usDate(ev.date), usTime(ev.end),
          "False", description, ev.loc ?? ""]);
   }
 

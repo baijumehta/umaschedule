@@ -9,9 +9,10 @@ import { EventDialog } from "./EventDialog";
 import { Gate } from "./Gate";
 import { MonthView } from "./MonthView";
 import { TodayCard } from "./TodayCard";
+import { TodayView } from "./TodayView";
 import { WeekView } from "./WeekView";
 
-type Tab = "week" | "month" | "calendar";
+type Tab = "today" | "week" | "month" | "calendar";
 
 export function Planner({ today }: { today: ISODate }) {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -21,7 +22,7 @@ export function Planner({ today }: { today: ISODate }) {
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [loadError, setLoadError] = useState("");
 
-  const [tab, setTab] = useState<Tab>("week");
+  const [tab, setTab] = useState<Tab>("today");
   const [weekStart, setWeekStart] = useState<ISODate>(() => mondayOf(clampTerm(today)));
   const [month, setMonth] = useState<string>(() => clampTerm(today).slice(0, 7));
 
@@ -157,7 +158,7 @@ export function Planner({ today }: { today: ISODate }) {
             Uma&rsquo;s <span>Block</span> Planner
           </h1>
           <div className="tabs" role="tablist" aria-label="Views">
-            {(["week", "month", "calendar"] as Tab[]).map((t) => (
+            {(["today", "week", "month", "calendar"] as Tab[]).map((t) => (
               <button
                 key={t} className="tab" role="tab" aria-selected={tab === t}
                 onClick={() => setTab(t)}
@@ -177,7 +178,16 @@ export function Planner({ today }: { today: ISODate }) {
           </div>
         )}
 
-        <TodayCard today={today} events={events} />
+        {tab !== "today" && <TodayCard today={today} events={events} />}
+
+        {tab === "today" && (
+          <TodayView
+            today={today} events={events}
+            onEdit={openEdit}
+            onAdd={(d) => openAdd(d)}
+            onOpenWeek={jumpToDay}
+          />
+        )}
 
         {tab === "week" && (
           <WeekView

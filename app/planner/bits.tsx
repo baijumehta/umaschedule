@@ -1,5 +1,6 @@
 "use client";
 
+import { classById, displayTitle } from "@/lib/classes";
 import { CATEGORIES, fmtRange } from "@/lib/schedule";
 import type { DayInfo, PlannerEvent } from "@/lib/types";
 
@@ -20,13 +21,25 @@ export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId:
     ? ev.loc === "Upper Fields" ? "odd · upper" : "even · crescent"
     : null;
 
+  // A test or project earns a word, not just a coloured dot.
+  const kindTag = ev.cat === "test" ? "test" : ev.cat === "project" ? "due" : null;
+  const cls = classById(ev.classId);
+
   return (
     <div className="ev">
       <div className="ev-time mono">{ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}</div>
       <div className="ev-main">
         <div className="ev-title">
           <CatDot cat={ev.cat} />
-          <span>{ev.title}</span>
+          {kindTag && (
+            <span
+              className="tag"
+              style={{ background: `var(${CATEGORIES[ev.cat].cssVar}-bg)`, color: `var(${CATEGORIES[ev.cat].cssVar})` }}
+            >
+              {kindTag}
+            </span>
+          )}
+          <span>{cls ? displayTitle(ev) : ev.title}</span>
           {laxTag && (
             <span className="tag" style={{ background: "var(--c-lax-bg)", color: "var(--c-lax)" }}>
               {laxTag}

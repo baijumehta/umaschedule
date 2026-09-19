@@ -1,8 +1,10 @@
+import { CLASSES } from "./classes";
 import { TERM_END, TERM_START, toMinutes } from "./schedule";
 import type { Category, StoredEvent } from "./types";
 
 const CATEGORY_VALUES: Category[] = [
-  "lax", "piano", "math", "act", "study", "social", "email", "school", "other",
+  "lax", "piano", "math", "act", "study", "social", "test", "project",
+  "email", "school", "other",
 ];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,10 +38,21 @@ export function validateEvent(input: unknown, id?: string): Validated {
     return { ok: false, error: `Dates have to fall inside the school year (${TERM_START} to ${TERM_END})` };
   }
 
-  const start = typeof b.start === "string" ? b.start : "";
-  const end = typeof b.end === "string" ? b.end : "";
-  if (!TIME_RE.test(start) || !TIME_RE.test(end)) return { ok: false, error: "Bad time" };
-  if (toMinutes(end) <= toMinutes(start)) return { ok: false, error: "It has to end after it starts" };
+  // A test or a due date occupies the day, so it carries no times at all.
+  const allDay = b.allDay === true;
+  let start = "";
+  let end = "";
+  if (!allDay) {
+    start = typeof b.start === "string" ? b.start : "";
+    end = typeof b.end === "string" ? b.end : "";
+    if (!TIME_RE.test(start) || !TIME_RE.test(end)) return { ok: false, error: "Bad time" };
+    if (toMinutes(end) <= toMinutes(start)) return { ok: false, error: "It has to end after it starts" };
+  }
+
+  const classId = typeof b.classId === "string" ? b.classId : "";
+  if (classId && !CLASSES.some((c) => c.id === classId)) {
+    return { ok: false, error: "That is not one of her classes" };
+  }
 
   const repeat = b.repeat === "weekly" ? "weekly" : "none";
 
@@ -61,7 +74,10 @@ export function validateEvent(input: unknown, id?: string): Validated {
   const loc = typeof b.loc === "string" ? b.loc.trim().slice(0, 200) : "";
   const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 2000) : "";
 
-  return { ok: true, value: { id: eventId, title, cat, date, start, end, loc, notes, repeat, days, until } };
+  return {
+    ok: true,
+    value: { id: eventId, title, cat, date, start, end, allDay, classId, loc, notes, repeat, days, until },
+  };
 }
 
 export const bad = (error: string) =>

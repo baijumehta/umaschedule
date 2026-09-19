@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CLASSES, classById, classesFor, classMeetsOn } from "@/lib/classes";
 import {
-  ADDABLE, CATEGORIES, dayInfo, dow, DOW_SHORT, eventsFor, findConflicts,
+  ADDABLE, ALL_DAY_BY_DEFAULT, CATEGORIES, dayInfo, dow, DOW_SHORT, eventsFor, findConflicts,
   fmtDate, fmtRange, fmtTime, occurrences, TERM_END, TERM_START, toMinutes,
 } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
@@ -30,26 +31,31 @@ interface Draft {
   end: string;
   loc: string;
   notes: string;
+  allDay: boolean;
+  classId: string;
   repeats: boolean;
   days: number[];
   until: ISODate;
 }
 
 const blank = (date: ISODate): Draft => ({
-  id: newId(), title: "", cat: "math", date, start: "16:00", end: "17:00",
-  loc: "", notes: "", repeats: false, days: [], until: TERM_END,
+  id: newId(), title: "", cat: "test", date, start: "16:00", end: "17:00",
+  loc: "", notes: "", allDay: true, classId: "", repeats: false, days: [], until: TERM_END,
 });
 
 const fromEvent = (ev: StoredEvent): Draft => ({
-  id: ev.id, title: ev.title, cat: ev.cat, date: ev.date, start: ev.start, end: ev.end,
-  loc: ev.loc, notes: ev.notes, repeats: ev.repeat === "weekly",
+  id: ev.id, title: ev.title, cat: ev.cat, date: ev.date,
+  start: ev.start || "16:00", end: ev.end || "17:00",
+  loc: ev.loc, notes: ev.notes, allDay: ev.allDay, classId: ev.classId, repeats: ev.repeat === "weekly",
   days: ev.days ?? [], until: ev.until || TERM_END,
 });
 
 const toEvent = (d: Draft): StoredEvent => ({
   id: d.id,
   title: d.title.trim() || CATEGORIES[d.cat].label,
-  cat: d.cat, date: d.date, start: d.start, end: d.end,
+  cat: d.cat, date: d.date,
+  start: d.allDay ? "" : d.start, end: d.allDay ? "" : d.end,
+  allDay: d.allDay, classId: d.classId,
   loc: d.loc.trim(), notes: d.notes.trim(),
   repeat: d.repeats && d.days.length ? "weekly" : "none",
   days: d.repeats ? d.days : [],
@@ -82,7 +88,13 @@ export function EventDialog(props: Props) {
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
   const candidate = useMemo(() => toEvent(draft), [draft]);
-  const timesValid = toMinutes(draft.end) > toMinutes(draft.start);
+  const timesValid = draft.allDay || toMinutes(draft.end) > toMinutes(draft.start);
+  const isAcademic = draft.cat === "test" || draft.cat === "project";
+
+  // A test on a day its class does not meet is almost always a wrong date.
+  const wrongDay =
+    isAcademic && draft.classId && dayInfo(draft.date).school &&
+    !classMeetsOn(draft.classId, draft.date);
 
   const dates = useMemo(
     () => (timesValid ? occurrences(candidate) : []),
@@ -153,6 +165,19 @@ export function EventDialog(props: Props) {
           </div>
         )}
 
+        {wrongDay && (
+          <div className="alert">
+            <strong>
+              {classById(draft.classId)?.name} does not meet on {fmtDate(draft.date)}.
+            </strong>
+            <div style={{ marginTop: 4 }}>
+              That is a {dayInfo(draft.date).block} day, when she has{" "}
+              {classesFor(draft.date).map((c) => c.short).join(", ")}. Check the date — or the
+              period mapping, if it is the app that has it wrong.
+            </div>
+          </div>
+        )}
+
         {offDays > 0 && (
           <div className="alert">
             <strong>
@@ -174,11 +199,50 @@ export function EventDialog(props: Props) {
           </div>
           <div className="field">
             <label htmlFor="f-cat">Kind</label>
-            <select id="f-cat" value={draft.cat} onChange={(e) => set("cat", e.target.value as Draft["cat"])}>
+            <select
+              id="f-cat" value={draft.cat}
+              onChange={(e) => {
+                const cat = e.target.value as Draft["cat"];
+                setDraft((d) => ({
+                  ...d,
+                  cat,
+                  allDay: ALL_DAY_BY_DEFAULT.includes(cat),
+                  classId: cat === "test" || cat === "project" ? d.classId : "",
+                }));
+              }}
+            >
               {ADDABLE.map((c) => (
                 <option value={c} key={c}>{CATEGORIES[c].label}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {isAcademic && (
+          <div className="row">
+            <div className="field grow">
+              <label htmlFor="f-class">Which class</label>
+              <select id="f-class" value={draft.classId} onChange={(e) => set("classId", e.target.value)}>
+                <option value="">— pick a class —</option>
+                {CLASSES.map((c) => (
+                  <option value={c.id} key={c.id}>
+                    {"Period " + c.period + " · " + c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className="row">
+          <div className="field wide">
+            <label className="opt" style={{ textTransform: "none", letterSpacing: 0 }}>
+              <input
+                type="checkbox" checked={draft.allDay}
+                onChange={(e) => set("allDay", e.target.checked)}
+              />
+              All day — no particular time
+            </label>
           </div>
         </div>
 
@@ -191,16 +255,20 @@ export function EventDialog(props: Props) {
               onChange={(e) => set("date", e.target.value)}
             />
           </div>
-          <div className="field">
-            <label htmlFor="f-start">Starts</label>
-            <input id="f-start" type="time" required value={draft.start}
-              onChange={(e) => set("start", e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="f-end">Ends</label>
-            <input id="f-end" type="time" required value={draft.end}
-              onChange={(e) => set("end", e.target.value)} />
-          </div>
+          {!draft.allDay && (
+            <>
+              <div className="field">
+                <label htmlFor="f-start">Starts</label>
+                <input id="f-start" type="time" required value={draft.start}
+                  onChange={(e) => set("start", e.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="f-end">Ends</label>
+                <input id="f-end" type="time" required value={draft.end}
+                  onChange={(e) => set("end", e.target.value)} />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="row">
