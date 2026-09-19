@@ -72,6 +72,67 @@ To retire one, change `FEED_TOKEN` and redeploy; the old URL dies immediately.
 
 ---
 
+## Adding things by typing or speaking
+
+`POST /api/parse` turns a phrase into a **draft** — "Bio test on the 23rd",
+"driving lesson Tuesday 3:30", "study with Maya Fridays 4 to 6 until winter
+break". Voice uses the browser's own speech recognition, so it costs nothing
+and the button hides itself where it is unsupported.
+
+Two constraints make this safe to rely on:
+
+- **The model only extracts; it never writes.** Every draft is confirmed by a
+  person. It then goes back through the same validator the API uses, and
+  `lib/schedule.ts` — not the model — re-runs the clash and wrong-day checks.
+  An LLM that mishears a date costs a correction, not a missed practice.
+- **It has to declare what it guessed.** A duration inferred from "at 3:30"
+  comes back as `assumptions: ["assumed 2 hours"]`, shown before saving.
+
+Worth the round trip: *"ACT tutoring every Tuesday and Thursday 5pm through
+November"* parses to a weekly event **and** reports four collisions with
+practice on even Thursdays, plus the Nov 3 staff development day.
+
+Claude Opus 5 at medium effort, about **$0.018 a parse** (measured — mostly
+output tokens). Low effort matched it on the hardest test case for a marginal
+saving, so medium stays: date accuracy is worth more than the difference.
+Needs `ANTHROPIC_API_KEY`; without it the box reports itself unavailable and
+the rest of the app is untouched.
+
+---
+
+## The nightly text
+
+A Vercel cron builds tomorrow's briefing with `lib/briefing.ts` — the same
+rules the Today tab renders — and sends it through Twilio.
+
+```
+Uma · Mon Sep 21 · ODD
+Classes: 0 AP Calc, 1 AP English, 3 French III
+1:45p Lacrosse practice (Upper Fields)
+2p Volunteering
+Coming: AP Biology — Biology test Wed (2d)
+```
+
+Sent the **evening before**, deliberately: a summary landing on the morning of
+a test is too late to act on. Recipients are managed in the app, so phone
+numbers live in the database and never in this repository, and the preview is
+rendered by the function that does the sending rather than an approximation of
+it.
+
+A `(send_date, phone)` primary key is claimed before each send, so a retried
+cron run or a manual send cannot text anyone twice; a failed send releases its
+claim so it can retry. `?dry=1` renders without sending.
+
+The cron fires at 01:00 UTC — 6pm Pacific in summer, 5pm in winter. One daily
+run, which is what Hobby plans allow. Needs `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `TWILIO_FROM` and `CRON_SECRET`; without them nothing is
+sent and nothing else changes.
+
+> US numbers need A2P 10DLC registration before Twilio will deliver to them,
+> which takes a few days to clear.
+
+---
+
 ## Access
 
 Deliberately not a login system, but not open either.
