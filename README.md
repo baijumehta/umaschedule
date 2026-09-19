@@ -103,8 +103,24 @@ npm run dev
 2. In the Vercel project, **Storage → Connect Store → Neon**, or set `DATABASE_URL`
    by hand under Settings → Environment Variables. Use the **pooled** Neon
    connection string — its host contains `-pooler`.
-3. Add `HOUSEHOLD_KEY` and `FEED_TOKEN` as environment variables too.
+3. Add `HOUSEHOLD_KEY` and `FEED_TOKEN` as environment variables too. Use the
+   same values as `.env.local`, or the feed URL will differ between local and
+   production.
 4. Deploy, then run `npm run db:setup` once against the same database.
+
+Check it came up with **`/api/health`**:
+
+```json
+{ "ready": true, "configured": { ... }, "database": "ok" }
+```
+
+Every other route answers a missing variable and a wrong passphrase with the
+same 401, so without this there is no way to tell a misconfigured deployment
+from a mistyped passphrase. `/api/health` reports only whether each variable is
+present — never a value.
+
+> Vercel sets environment variables per environment. Adding one only to Preview
+> leaves Production unconfigured, and the symptom is a 401 on everything.
 
 ---
 
