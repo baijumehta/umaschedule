@@ -1,4 +1,4 @@
-# Copies the three secrets from .env.local into the Vercel project's Production
+# Copies the secrets in .env.local into the Vercel project's Production
 # environment, then reminds you to redeploy.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\push-env.ps1
@@ -27,14 +27,29 @@ foreach ($line in Get-Content $envFile) {
     if ($i -lt 1) { continue }
     $name  = $trimmed.Substring(0, $i).Trim()
     $value = $trimmed.Substring($i + 1).Trim().Trim('"')
+    # vercel link writes this one into .env.local; it is not ours to push.
+    if ($name -eq 'VERCEL_OIDC_TOKEN') { continue }
     if ($value) { $values[$name] = $value }
 }
 
-$needed  = @('DATABASE_URL', 'HOUSEHOLD_KEY', 'FEED_TOKEN')
-$missing = $needed | Where-Object { -not $values.ContainsKey($_) }
+# Without these the app cannot run at all.
+$required = @('DATABASE_URL', 'HOUSEHOLD_KEY', 'FEED_TOKEN')
+# Each of these turns on one optional feature. Blank ones are skipped, and the
+# app reports that feature as unconfigured rather than breaking.
+$optional = @('ANTHROPIC_API_KEY', 'CRON_SECRET',
+              'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM')
+
+$missing = $required | Where-Object { -not $values.ContainsKey($_) }
 if ($missing) {
     Write-Host "These are missing or empty in .env.local: $($missing -join ', ')" -ForegroundColor Red
     exit 1
+}
+
+$needed = @($required) + @($optional | Where-Object { $values.ContainsKey($_) })
+$skipped = $optional | Where-Object { -not $values.ContainsKey($_) }
+if ($skipped) {
+    Write-Host "Not set locally, so skipping: $($skipped -join ', ')" -ForegroundColor DarkGray
+    Write-Host ""
 }
 
 # Link the folder to the Vercel project if it has not been linked. This one
