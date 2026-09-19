@@ -1,0 +1,65 @@
+"use client";
+
+import { CATEGORIES, fmtRange } from "@/lib/schedule";
+import type { DayInfo, PlannerEvent } from "@/lib/types";
+
+/** The single most useful fact about a school day: which block it runs. */
+export function BlockChip({ info }: { info: DayInfo }) {
+  if (!info.school) return null;
+  const odd = info.block === "odd";
+  return <span className={"chip " + (odd ? "chip-odd" : "chip-even")}>{info.block} day</span>;
+}
+
+export function CatDot({ cat }: { cat: PlannerEvent["cat"] }) {
+  return <i className="ev-dot" style={{ background: `var(${CATEGORIES[cat].cssVar})` }} />;
+}
+
+export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId: string) => void }) {
+  // Practice location follows the block day, so label which one it came from.
+  const laxTag = ev.cat === "lax"
+    ? ev.loc === "Upper Fields" ? "odd · upper" : "even · crescent"
+    : null;
+
+  return (
+    <div className="ev">
+      <div className="ev-time mono">{ev.allDay ? "all day" : fmtRange(ev.start, ev.end)}</div>
+      <div className="ev-main">
+        <div className="ev-title">
+          <CatDot cat={ev.cat} />
+          <span>{ev.title}</span>
+          {laxTag && (
+            <span className="tag" style={{ background: "var(--c-lax-bg)", color: "var(--c-lax)" }}>
+              {laxTag}
+            </span>
+          )}
+        </div>
+        {ev.loc && <div className="ev-loc">{ev.loc}</div>}
+        {ev.notes && <div className="ev-notes">{ev.notes}</div>}
+      </div>
+      {!ev.fixed && onEdit ? (
+        <button
+          type="button"
+          className="btn btn-ghost ev-edit"
+          onClick={() => onEdit(ev.sourceId ?? ev.id)}
+        >
+          Edit
+        </button>
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+}
+
+export function Legend() {
+  return (
+    <div className="legend">
+      {(Object.keys(CATEGORIES) as Array<keyof typeof CATEGORIES>).map((k) => (
+        <span className="lg" key={k}>
+          <i style={{ background: `var(${CATEGORIES[k].cssVar})` }} />
+          {CATEGORIES[k].label}
+        </span>
+      ))}
+    </div>
+  );
+}

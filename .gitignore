@@ -3,3 +3,7 @@ node_modules/
 .env.local
 .vercel
 .DS_Store
+.claude/
+.next/
+next-env.d.ts
+*.tsbuildinfo
