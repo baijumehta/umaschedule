@@ -47,9 +47,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       headers: {
         "content-type": "text/calendar; charset=utf-8",
         "content-disposition": 'inline; filename="uma-schedule.ics"',
-        // Subscribers poll on their own timetable; a short cache keeps a
-        // burst of refreshes from hitting Neon for every one of them.
-        "cache-control": "public, max-age=900, s-maxage=900",
+        // Short enough that a manual "refresh calendars" reflects something
+        // just added, long enough that several devices polling at once do not
+        // each hit Neon. stale-while-revalidate lets the edge answer instantly
+        // and refresh behind the request.
+        "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
         ...(changedAt ? { "last-modified": new Date(changedAt).toUTCString() } : {}),
       },
     });
