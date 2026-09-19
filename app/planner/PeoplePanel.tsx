@@ -11,6 +11,7 @@ interface Recipient {
   id: string;
   name: string;
   phone: string;
+  email: string;
   active: boolean;
 }
 
@@ -24,6 +25,8 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
   const [people, setPeople] = useState<Recipient[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [channels, setChannels] = useState<{ sms: boolean; email: boolean }>({ sms: false, email: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -46,6 +49,17 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
 
   useEffect(() => { load(); }, [load]);
 
+  // A dry run reports which transports this deployment can actually use, so
+  // the panel can say "email only" while Twilio registration is still clearing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/cron/daily?dry=1", { headers: headers(), cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (!cancelled && b?.channels) setChannels(b.channels); })
+      .catch(() => { /* The preview below still renders. */ });
+    return () => { cancelled = true; };
+  }, [headers]);
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setError(""); setStatus("");
@@ -53,11 +67,11 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
       const res = await fetch("/api/recipients", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ name, phone, active: true }),
+        body: JSON.stringify({ name, phone, email, active: true }),
       });
       const body = await res.json();
       if (!res.ok) { setError(body.error ?? "Could not add them."); return; }
-      setName(""); setPhone("");
+      setName(""); setPhone(""); setEmail("");
       await load();
     } catch {
       setError("Could not reach the planner.");
@@ -84,11 +98,14 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
       const res = await fetch("/api/cron/daily", { headers: headers(), cache: "no-store" });
       const body = await res.json();
       if (!res.ok) { setStatus(""); setError(body.error ?? "Could not send."); return; }
-      const sent = (body.sent ?? []) as Array<{ name: string; ok: boolean; skipped?: boolean; error?: string }>;
+      const sent = (body.sent ?? []) as Array<{ name: string; via: string; ok: boolean; skipped?: boolean; error?: string }>;
       if (!sent.length) { setStatus(body.note ?? "Nobody to send to."); return; }
-      setStatus(sent.map((s) =>
-        s.skipped ? `${s.name}: already sent today` : s.ok ? `${s.name}: sent` : `${s.name}: ${s.error}`,
-      ).join(" · "));
+      setStatus(sent.map((s) => {
+        const who = `${s.name} (${s.via === "sms" ? "text" : "email"})`;
+        return s.skipped ? `${who}: already sent today`
+          : s.ok ? `${who}: sent`
+          : `${who}: ${s.error}`;
+      }).join(" · "));
     } catch {
       setStatus(""); setError("Could not reach the planner.");
     } finally {
@@ -104,7 +121,7 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
   return (
     <>
       <div className="panel">
-        <h3>The nightly text</h3>
+        <h3>The nightly briefing</h3>
         <p className="lede">
           Every evening, everyone on this list gets the next day in one message &mdash; the block
           day, which classes meet, what is on after school, and anything due. Sent the night before
@@ -116,7 +133,8 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
             Tonight&rsquo;s message &mdash; {DOW_NAMES[dow(target)]}, {fmtDate(target, true)}
           </p>
           <span className="brief-count mono">
-            {preview.length} chars &middot; {parts} {parts === 1 ? "segment" : "segments"}
+            {preview.length} chars
+            {channels.sms && ` · ${parts} ${parts === 1 ? "segment" : "segments"}`}
           </span>
         </div>
         <pre className="sms-preview">{preview}</pre>
@@ -127,6 +145,16 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
           </button>
         </div>
         {status && <p className="status status-ok">{status}</p>}
+
+        <p className="note">
+          {!channels.sms && !channels.email
+            ? "Nothing can be sent yet — configure SMTP2GO or Twilio."
+            : channels.sms && channels.email
+              ? "Going out by text and email — everyone gets one of each channel they have."
+              : channels.email
+                ? "Going out by email. Texting turns itself on once Twilio is configured."
+                : "Going out by text."}
+        </p>
       </div>
 
       <div className="panel">
@@ -138,7 +166,9 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
             {people.map((p) => (
               <div className="person" key={p.id}>
                 <span className="person-name">{p.name}</span>
-                <span className="person-phone mono">{p.phone}</span>
+                <span className="person-phone mono">
+                  {[p.phone, p.email].filter(Boolean).join("  ·  ")}
+                </span>
                 <button
                   className="btn btn-ghost btn-danger" disabled={busy}
                   onClick={() => remove(p.id)}
@@ -160,25 +190,34 @@ export function PeoplePanel({ today, events }: { today: ISODate; events: StoredE
               />
             </div>
             <div className="field">
-              <label htmlFor="p-phone">Mobile number</label>
+              <label htmlFor="p-phone">Mobile <span className="plain">(for texts)</span></label>
               <input
-                id="p-phone" type="tel" value={phone} required
+                id="p-phone" type="tel" value={phone}
                 placeholder="(714) 555-0142" autoComplete="off"
                 onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="p-email">Email</label>
+              <input
+                id="p-email" type="email" value={email}
+                placeholder="nicole@example.com" autoComplete="off"
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
           </div>
           {error && <p className="status status-bad">{error}</p>}
           <div className="actions" style={{ marginTop: 4 }}>
-            <button className="btn btn-primary" type="submit" disabled={busy || !name || !phone}>
+            <button className="btn btn-primary" type="submit" disabled={busy || !name || (!phone && !email)}>
               Add them
             </button>
           </div>
         </form>
 
         <p className="note">
-          US numbers can be typed any way &mdash; they are stored in the international form Twilio
-          needs. Numbers live only in the database, never in the repository.
+Either one is enough, or give both. US numbers can be typed any way &mdash; they are stored in
+          the international form Twilio needs. Addresses live only in the database, never in the
+          repository.
         </p>
       </div>
     </>

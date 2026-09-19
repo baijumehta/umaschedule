@@ -1,4 +1,5 @@
 import { listEvents } from "@/lib/db";
+import { emailConfigured } from "@/lib/email";
 import { smsConfigured } from "@/lib/sms";
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ export async function GET() {
     HOUSEHOLD_KEY: Boolean(process.env.HOUSEHOLD_KEY),
     FEED_TOKEN: Boolean(process.env.FEED_TOKEN),
     ANTHROPIC_API_KEY: Boolean(process.env.ANTHROPIC_API_KEY),
+    SMTP2GO: emailConfigured(),
     TWILIO: smsConfigured(),
     CRON_SECRET: Boolean(process.env.CRON_SECRET),
   };
@@ -46,9 +48,12 @@ export async function GET() {
       // The planner works without a feed token; only subscribing needs one.
       feed: configured.FEED_TOKEN ? "available" : "no FEED_TOKEN set",
       naturalLanguage: configured.ANTHROPIC_API_KEY ? "available" : "no ANTHROPIC_API_KEY set",
-      nightlyText: configured.TWILIO
-        ? (configured.CRON_SECRET ? "available" : "Twilio set, but CRON_SECRET is missing")
-        : "Twilio is not configured",
+      nightlyBriefing: !configured.SMTP2GO && !configured.TWILIO
+        ? "no way to send — configure SMTP2GO or Twilio"
+        : !configured.CRON_SECRET
+          ? "a sender is set, but CRON_SECRET is missing so the schedule cannot run"
+          : [configured.SMTP2GO ? "email" : null, configured.TWILIO ? "text" : null]
+              .filter(Boolean).join(" and ") + " available",
     }, null, 2),
     { headers: { "content-type": "application/json", "cache-control": "no-store" } },
   );

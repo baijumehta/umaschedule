@@ -58,27 +58,52 @@ alter table events add  constraint known_category check (cat in
 create index if not exists events_date_idx on events (event_date);
 
 -- ---------------------------------------------------------------------------
--- Who gets the nightly text.
+-- Who gets the nightly briefing, and how it reaches them.
 --
--- Phone numbers are entered in the app, never committed. E.164 only, which is
--- what Twilio accepts.
+-- A person can have a phone, an email, or both — email carries it while Twilio
+-- registration is still clearing, and the same row keeps working afterwards.
+-- Addresses are entered in the app, never committed.
 create table if not exists recipients (
   id          text primary key,
   name        text not null check (length(name) between 1 and 60),
-  phone       text not null check (phone ~ '^\+[1-9][0-9]{7,14}$'),
+  phone       text not null default '',
   active      boolean not null default true,
   created_at  timestamptz not null default now()
 );
 
-create unique index if not exists recipients_phone_idx on recipients (phone);
+alter table recipients add column if not exists email text not null default '';
+alter table recipients alter column phone set default '';
 
--- One row per person per day the text went out, so a retry or a manual run
--- cannot text anyone twice for the same day.
-create table if not exists sms_log (
+-- The original table required a phone in E.164 under a generated name. Email-
+-- only recipients need that relaxed, so drop it by that name and re-add one
+-- that also admits an empty string.
+alter table recipients drop constraint if exists recipients_phone_check;
+alter table recipients drop constraint if exists phone_shape;
+alter table recipients add  constraint phone_shape
+  check (phone = '' or phone ~ '^\+[1-9][0-9]{7,14}$');
+
+alter table recipients drop constraint if exists email_shape;
+alter table recipients add  constraint email_shape
+  check (email = '' or email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$');
+
+alter table recipients drop constraint if exists has_an_address;
+alter table recipients add  constraint has_an_address check (phone <> '' or email <> '');
+
+-- Partial, so several email-only people can share the empty phone string.
+drop index if exists recipients_phone_idx;
+create unique index if not exists recipients_phone_uniq on recipients (phone) where phone <> '';
+create unique index if not exists recipients_email_uniq on recipients (lower(email)) where email <> '';
+
+-- One row per person per channel per day, so a retry or a manual run cannot
+-- send anyone the same briefing twice. Replaces sms_log, which was SMS-only.
+create table if not exists send_log (
   send_date   date not null,
-  phone       text not null,
+  channel     text not null check (channel in ('sms','email')),
+  address     text not null,
   sent_at     timestamptz not null default now(),
   ok          boolean not null,
   detail      text not null default '',
-  primary key (send_date, phone)
+  primary key (send_date, channel, address)
 );
+
+drop table if exists sms_log;

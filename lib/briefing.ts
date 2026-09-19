@@ -105,3 +105,33 @@ export function segments(body: string): number {
   const multi = unicode ? 67 : 153;
   return body.length <= limit ? 1 : Math.ceil(body.length / multi);
 }
+
+/**
+ * The subject line — which, for an email, is the part that actually shows in
+ * the notification. So it leads with the single most actionable thing on the
+ * day rather than restating the date twice.
+ */
+export function briefingSubject(date: ISODate, events: StoredEvent[]): string {
+  const info = dayInfo(date);
+  const when = `${DOW_SHORT[dow(date)]} ${fmtDate(date)}`;
+  const kind = info.school ? (info.min ? `${info.block}, min day` : info.block ?? "") : info.reason ?? "";
+  const head = `Uma · ${when}${kind ? ` (${kind})` : ""}`;
+
+  const all = eventsFor(date, events, { school: false }).filter((e) => !SKIP_IN_SMS.has(e.cat));
+  const test = all.find((e) => e.cat === "test");
+  const due = all.find((e) => e.cat === "project");
+  const first = all.find((e) => !e.allDay) ?? all[0];
+
+  const lead = test
+    ? `${displayTitle(test)} test`
+    : due
+      ? `${displayTitle(due)} due`
+      : first
+        ? (first.allDay ? first.title : `${shortTime(first.start)} ${first.title}`)
+        : "";
+
+  if (!lead) return head + (info.school ? " — nothing after school" : "");
+
+  const extra = all.length - 1;
+  return `${head} — ${lead}${extra > 0 ? ` +${extra} more` : ""}`;
+}

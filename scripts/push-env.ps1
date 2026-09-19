@@ -37,6 +37,7 @@ $required = @('DATABASE_URL', 'HOUSEHOLD_KEY', 'FEED_TOKEN')
 # Each of these turns on one optional feature. Blank ones are skipped, and the
 # app reports that feature as unconfigured rather than breaking.
 $optional = @('ANTHROPIC_API_KEY', 'CRON_SECRET',
+              'SMTP2GO_API_KEY', 'SMTP2GO_SENDER',
               'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM')
 
 $missing = $required | Where-Object { -not $values.ContainsKey($_) }
