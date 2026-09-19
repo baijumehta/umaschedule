@@ -8,6 +8,8 @@ import { CalendarPanel } from "./CalendarPanel";
 import { EventDialog } from "./EventDialog";
 import { Gate } from "./Gate";
 import { MonthView } from "./MonthView";
+import { PeoplePanel } from "./PeoplePanel";
+import { QuickAdd } from "./QuickAdd";
 import { TodayCard } from "./TodayCard";
 import { TodayView } from "./TodayView";
 import { WeekView } from "./WeekView";
@@ -181,12 +183,19 @@ export function Planner({ today }: { today: ISODate }) {
         {tab !== "today" && <TodayCard today={today} events={events} />}
 
         {tab === "today" && (
-          <TodayView
-            today={today} events={events}
-            onEdit={openEdit}
-            onAdd={(d) => openAdd(d)}
-            onOpenWeek={jumpToDay}
-          />
+          <>
+            <TodayView
+              today={today} events={events}
+              onEdit={openEdit}
+              onAdd={(d) => openAdd(d)}
+              onOpenWeek={jumpToDay}
+            />
+            <QuickAdd
+              today={today} events={events}
+              onSave={save}
+              onTweak={(draft) => { setEditing(draft); setSaveError(""); setDialogOpen(true); }}
+            />
+          </>
         )}
 
         {tab === "week" && (
@@ -207,7 +216,12 @@ export function Planner({ today }: { today: ISODate }) {
           />
         )}
 
-        {tab === "calendar" && <CalendarPanel today={today} events={events} />}
+        {tab === "calendar" && (
+          <>
+            <CalendarPanel today={today} events={events} />
+            <PeoplePanel today={today} events={events} />
+          </>
+        )}
 
         <Footer />
       </div>

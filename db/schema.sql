@@ -56,3 +56,29 @@ alter table events add  constraint known_category check (cat in
   ('lax','piano','math','act','study','social','test','project','email','school','other'));
 
 create index if not exists events_date_idx on events (event_date);
+
+-- ---------------------------------------------------------------------------
+-- Who gets the nightly text.
+--
+-- Phone numbers are entered in the app, never committed. E.164 only, which is
+-- what Twilio accepts.
+create table if not exists recipients (
+  id          text primary key,
+  name        text not null check (length(name) between 1 and 60),
+  phone       text not null check (phone ~ '^\+[1-9][0-9]{7,14}$'),
+  active      boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+create unique index if not exists recipients_phone_idx on recipients (phone);
+
+-- One row per person per day the text went out, so a retry or a manual run
+-- cannot text anyone twice for the same day.
+create table if not exists sms_log (
+  send_date   date not null,
+  phone       text not null,
+  sent_at     timestamptz not null default now(),
+  ok          boolean not null,
+  detail      text not null default '',
+  primary key (send_date, phone)
+);

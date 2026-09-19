@@ -9,10 +9,12 @@
     "db:setup": "node --env-file=.env.local scripts/setup-db.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@neondatabase/serverless": "^0.10.4",
     "next": "^15.1.7",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

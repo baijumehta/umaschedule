@@ -449,3 +449,47 @@ code, .code {
   color: var(--focus); font: inherit; font-size: inherit;
   text-decoration: underline; text-underline-offset: 2px;
 }
+
+/* ---------- natural-language entry ---------- */
+.qa-row { display: flex; gap: 9px; align-items: stretch; }
+.qa-input {
+  flex: 1 1 auto; min-width: 0;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 9px;
+  padding: 10px 12px; font-size: 15px; resize: vertical; font-family: inherit;
+}
+.qa-mic { flex: none; white-space: nowrap; align-self: flex-start; }
+.qa-mic-on { background: var(--c-test); border-color: var(--c-test); color: #fff; }
+
+.qa-drafts { display: flex; flex-direction: column; gap: 11px; margin-top: 15px; }
+.qa-draft {
+  border: 1px solid var(--rule); border-radius: 11px; padding: 13px 14px; background: var(--paper);
+}
+.qa-draft-done { opacity: 0.6; }
+.qa-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.qa-title { font-weight: 600; font-size: 15px; }
+.qa-when { font-size: 12.5px; color: var(--ink2); margin-top: 4px; }
+.qa-notes { font-size: 12.5px; color: var(--ink3); margin-top: 3px; }
+.qa-assume {
+  font-size: 12.5px; color: var(--ink3); margin: 8px 0 0;
+  padding-left: 10px; border-left: 2px solid var(--rule);
+}
+@media (max-width: 480px) {
+  .qa-row { flex-direction: column; }
+  .qa-mic { align-self: stretch; }
+}
+
+/* ---------- the nightly text ---------- */
+.sms-preview {
+  margin: 0; background: var(--sunk); border: 1px solid var(--rule); border-radius: 9px;
+  padding: 13px 14px; font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+  color: var(--ink);
+}
+.people { display: flex; flex-direction: column; gap: 1px; }
+.person {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--rule2);
+}
+.person:first-child { border-top: 0; }
+.person-name { font-weight: 600; font-size: 14.5px; }
+.person-phone { font-size: 12.5px; color: var(--ink3); flex: 1; }
