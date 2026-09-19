@@ -122,16 +122,24 @@ export function briefingSubject(date: ISODate, events: StoredEvent[]): string {
   const due = all.find((e) => e.cat === "project");
   const first = all.find((e) => !e.allDay) ?? all[0];
 
+  // Only add the kind word when the title does not already carry it, or a
+  // "Biology test" turns into "Biology test test".
+  const says = (title: string, words: RegExp) => words.test(title);
   const lead = test
-    ? `${displayTitle(test)} test`
+    ? says(test.title, /\b(test|quiz|exam|midterm|final)s?\b/i)
+      ? displayTitle(test)
+      : `${displayTitle(test)} test`
     : due
-      ? `${displayTitle(due)} due`
+      ? says(due.title, /\b(due|project|essay|paper|report|presentation)s?\b/i)
+        ? displayTitle(due)
+        : `${displayTitle(due)} due`
       : first
-        ? (first.allDay ? first.title : `${shortTime(first.start)} ${first.title}`)
+        ? (first.allDay ? displayTitle(first) : `${shortTime(first.start)} ${first.title}`)
         : "";
 
-  if (!lead) return head + (info.school ? " — nothing after school" : "");
+  if (!lead) return head + (info.school ? ": nothing after school" : "");
 
+  // A colon, not a dash: displayTitle already contains an em dash of its own.
   const extra = all.length - 1;
-  return `${head} — ${lead}${extra > 0 ? ` +${extra} more` : ""}`;
+  return `${head}: ${lead}${extra > 0 ? ` +${extra} more` : ""}`;
 }
