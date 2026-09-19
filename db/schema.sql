@@ -45,6 +45,12 @@ alter table events drop constraint if exists ends_after_it_starts;
 alter table events add  constraint ends_after_it_starts
   check (all_day or (start_time is not null and end_time is not null and end_time > start_time));
 
+-- The first version of this table declared the category check inline, so
+-- Postgres named it events_cat_check. "create table if not exists" skips an
+-- existing table, so that constraint outlives any edit to the block above and
+-- has to be dropped by its generated name or it keeps rejecting new categories.
+alter table events drop constraint if exists events_cat_check;
+
 alter table events drop constraint if exists known_category;
 alter table events add  constraint known_category check (cat in
   ('lax','piano','math','act','study','social','test','project','email','school','other'));
