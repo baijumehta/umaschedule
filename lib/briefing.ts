@@ -133,12 +133,9 @@ export function briefingSubject(
   const head = `Uma · ${b.heading} (${b.kind})`;
 
   const urgent = b.nudges.find((n) => n.urgency === "now") ?? b.nudges[0];
-  if (urgent) {
-    // Name what it is about: "Final review tonight" alone says nothing in an
-    // inbox, and the subject line is all some people will read.
-    const about = urgent.aboutTitle ? ` — ${urgent.aboutTitle}` : "";
-    return `${head}: ${urgent.title}${about}`;
-  }
+  // Nudge titles now carry their own subject and date, so appending the event
+  // title again just stutters: "AP Biology test tomorrow, period 2 — Biology test".
+  if (urgent) return `${head}: ${urgent.title}`;
 
   const test = b.schedule.find((e) => e.cat === "test");
   const first = b.schedule.find((e) => !e.allDay) ?? b.schedule[0];

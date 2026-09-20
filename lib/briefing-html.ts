@@ -97,11 +97,7 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
         padding:4px 8px;border-radius:3px;margin-left:5px">min day</span>` : ""}
   </td></tr>`);
 
-  // --- what to do, first, because that is the point -----------------
-  if (b.nudges.length) {
-    parts.push(section("What to do", b.nudges.map(nudgeBlock).join("")));
-  }
-
+  // The one written sentence leads: it frames the checklist under it.
   if (b.coaching) {
     parts.push(`
     <tr><td style="padding:16px 0 0">
@@ -111,6 +107,12 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
       </div>
     </td></tr>`);
   }
+
+  // --- what to do, next --------------------------------------------
+  if (b.nudges.length) {
+    parts.push(section("What to do", b.nudges.map(nudgeBlock).join("")));
+  }
+
 
   // --- classes ------------------------------------------------------
   if (b.classes.length) {

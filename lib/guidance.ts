@@ -36,12 +36,38 @@ export interface Nudge {
   classId?: string;
 }
 
-/** How many days ahead a rule looks. */
+/**
+ * What a rule says, given the thing it is about.
+ *
+ * Titles and details are built from the event rather than written flat.
+ * "Final review tonight" is a fortune cookie; "AP Biology test tomorrow,
+ * period 2" is an instruction. A digest is read in ten seconds on a phone with
+ * nothing to cross-reference against, so every line carries its own subject,
+ * date and stakes.
+ */
+interface StepContext {
+  /** "AP Biology" for a class test, otherwise the event's own title. */
+  subject: string;
+  /** The event title as entered. */
+  title: string;
+  /** "Tue Sep 22". */
+  when: string;
+  /** Whole days from today. */
+  days: number;
+  /** "period 2", when the event names a class. */
+  period: string;
+  /** "7am", for a timed event. */
+  time: string;
+}
+
 interface Step {
   daysBefore: number;
-  title: string;
-  detail: string;
+  title: (c: StepContext) => string;
+  detail: (c: StepContext) => string;
 }
+
+/** "in 5 days", "tomorrow", "today" — phrased the same way everywhere. */
+const inDays = (n: number): string => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
 
 /**
  * The standardised-test checklist — written directly from what went wrong.
@@ -53,45 +79,87 @@ interface Step {
 const EXAM_STEPS: Step[] = [
   {
     daysBefore: 30,
-    title: "Check your ACT registration is complete",
-    detail:
-      "Log in to your ACT account and confirm your photo is uploaded and your test centre is " +
-      "right. A missing photo can get the test cancelled on the day — this has already " +
-      "happened once.",
+    title: (c) => `Check your ${c.subject} registration — the photo especially`,
+    detail: (c) =>
+      `${c.subject} is ${c.when}, ${inDays(c.days)}. Log in and confirm your photo is uploaded ` +
+      `and the test centre is right. A missing photo got a test cancelled on the day once ` +
+      `already — do not let that be the reason twice.`,
   },
   {
     daysBefore: 14,
-    title: "Print your admission ticket",
-    detail: "Print the ticket and check the photo ID you plan to bring is current and acceptable.",
+    title: (c) => `Print your ${c.subject} admission ticket`,
+    detail: (c) =>
+      `The ${c.subject} is ${c.when}, ${inDays(c.days)}. Print it now, and check the photo ID ` +
+      `you plan to bring is current — both are needed at the door.`,
   },
   {
     daysBefore: 7,
-    title: "Confirm the centre and reporting time",
-    detail:
-      "Check the address, how long it takes to get there, and what you are allowed to bring in.",
+    title: (c) => `Confirm where the ${c.subject} is and when to be there`,
+    detail: (c) =>
+      `The ${c.subject} is ${inDays(c.days)}. Check the centre address, how long it takes to get there` +
+      `${c.time ? ` for a ${c.time} start` : ""}, and what you are allowed to bring in.`,
   },
   {
     daysBefore: 2,
-    title: "Pack the night before, not the morning of",
-    detail: "Admission ticket, photo ID, approved calculator, pencils, water, a snack.",
+    title: (c) => `Pack for the ${c.subject} tonight, not in the morning`,
+    detail: (c) =>
+      `${c.when}${c.time ? `, starting ${c.time}` : ""}. Admission ticket, photo ID, approved ` +
+      `calculator, pencils, water, a snack — in a bag by the door.`,
   },
   {
     daysBefore: 1,
-    title: "Early night — it starts early",
-    detail: "Lay everything by the door. Set two alarms.",
+    title: (c) => `The ${c.subject} is tomorrow${c.time ? ` at ${c.time}` : ""} — early night`,
+    detail: () =>
+      `Nothing you learn tonight will show up tomorrow. Lay it all by the door and set two alarms.`,
   },
 ];
 
 const TEST_STEPS: Step[] = [
-  { daysBefore: 5, title: "Start reviewing", detail: "Five days out is when this is still easy." },
-  { daysBefore: 2, title: "Last real chance to study", detail: "Two evenings left before it." },
-  { daysBefore: 1, title: "Final review tonight", detail: "Go over what you flagged, then stop." },
+  {
+    daysBefore: 5,
+    title: (c) => `Start reviewing for ${c.subject}`,
+    detail: (c) =>
+      `The test is ${c.when}, ${inDays(c.days)}. Two short sessions this week beat one long one ` +
+      `the night before, and there is still room in the week to put them somewhere.`,
+  },
+  {
+    daysBefore: 2,
+    title: (c) => `${c.subject}: two evenings left before the test`,
+    detail: (c) =>
+      `It is ${c.when}${c.period ? `, ${c.period}` : ""}. This is the last point where new ` +
+      `material still sticks. After tonight you are only revising what you already know.`,
+  },
+  {
+    daysBefore: 1,
+    title: (c) => `${c.subject} test tomorrow${c.period ? `, ${c.period}` : ""}`,
+    detail: () =>
+      `Final review tonight: go back over whatever you flagged as shaky, then stop. Late ` +
+      `cramming costs more in tiredness than it adds in recall.`,
+  },
 ];
 
 const PROJECT_STEPS: Step[] = [
-  { daysBefore: 7, title: "Start it this week", detail: "A week out is enough if it starts now." },
-  { daysBefore: 3, title: "There should be a draft by now", detail: "Rough is fine. Something to cut." },
-  { daysBefore: 1, title: "Due tomorrow — finish and check it", detail: "Read it once out loud." },
+  {
+    daysBefore: 7,
+    title: (c) => `Start ${c.title} this week`,
+    detail: (c) =>
+      `Due ${c.when}${c.subject !== c.title ? ` for ${c.subject}` : ""}. A week is comfortable ` +
+      `if it starts now and miserable if it starts Thursday.`,
+  },
+  {
+    daysBefore: 3,
+    title: (c) => `${c.title}: there should be a draft by now`,
+    detail: (c) =>
+      `Due ${c.when}, ${inDays(c.days)}. Rough is fine — the point is having something to cut ` +
+      `rather than something to begin.`,
+  },
+  {
+    daysBefore: 1,
+    title: (c) => `${c.title} is due tomorrow`,
+    detail: (c) =>
+      `${c.when}${c.subject !== c.title ? `, ${c.subject}` : ""}. Finish it tonight and read it ` +
+      `once out loud before you hand it in.`,
+  },
 ];
 
 /** Long enough that a cat:"act" entry is the exam itself, not a prep session. */
@@ -150,13 +218,22 @@ export function nudgesFor(
           // ticked off, which is the whole point of the done set.
           if (!cumulative &&
               steps.some((s) => s.daysBefore < step.daysBefore && away <= s.daysBefore)) continue;
+          const cls = classById(ev.classId);
+          const ctx: StepContext = {
+            subject: cls ? cls.name : ev.title,
+            title: ev.title,
+            when,
+            days: away,
+            period: cls ? `period ${cls.period}` : "",
+            time: ev.allDay ? "" : fmtTime(ev.start),
+          };
           out.push({
             id,
             // A checklist item still outstanding takes the urgency of how close
             // the exam now is, not of the step that spawned it.
             urgency: urgencyFor(away),
-            title: step.title,
-            detail: step.detail,
+            title: step.title(ctx),
+            detail: step.detail(ctx),
             aboutDate: date,
             aboutTitle: ev.title,
             ...extra,
@@ -166,17 +243,6 @@ export function nudgesFor(
 
       if (isExam(ev)) {
         emit(EXAM_STEPS, "exam", true);
-        // Reporting time matters the night before; say it rather than imply it.
-        if (away === 1) {
-          out.push({
-            id: `exam-time:${key}`,
-            urgency: "now",
-            title: `${ev.title} is tomorrow, ${fmtTime(ev.start)}`,
-            detail: `${when}. Be there before the reporting time, not at it.`,
-            aboutDate: date,
-            aboutTitle: ev.title,
-          });
-        }
       } else if (ev.cat === "test") {
         emit(TEST_STEPS, "test", false, {
           suggestStudyMinutes: 60,
@@ -195,8 +261,10 @@ export function nudgesFor(
             out.push({
               id,
               urgency: urgencyFor(away),
-              title: "Still no schedule for the tournament",
-              detail: `${ev.title} is ${when} and the time is still to be announced. Ask the coach.`,
+              title: `Still no start time for ${ev.title}`,
+              detail:
+                `It is ${when}, ${inDays(away)}, and the schedule still says to be announced. ` +
+                `Ask the coach today — a morning start changes what the rest of that day can hold.`,
               aboutDate: date,
               aboutTitle: ev.title,
             });
@@ -209,16 +277,20 @@ export function nudgesFor(
   // The habit that failed: checking email. Make it pointed when a registered
   // exam is close, because that is exactly when the message that matters lands.
   const exam = upcomingExam(today, events);
-  if (exam && daysBetween(today, exam.date) <= 35) {
+  const examAway = exam ? daysBetween(today, exam.date) : Infinity;
+  if (exam && examAway <= 35 && examAway >= 3) {
     const id = `mail:${exam.id}`;
     if (!done.has(id)) {
       out.unshift({
         id,
         urgency: daysBetween(today, exam.date) <= 7 ? "now" : "soon",
-        title: "Read anything from ACT the day it arrives",
+        title:
+          `The ${exam.title} is ${inDays(examAway)} — ` +
+          `open their email the day it arrives`,
         detail:
-          "Registration problems are sent by email and they are time-limited. " +
-          "Between now and the test, open ACT mail the day it lands.",
+          `${exam.title} is ${DOW_SHORT[dow(exam.date)]} ${fmtDate(exam.date)}. Registration ` +
+          `problems come by email and they expire. This is exactly how a test got cancelled ` +
+          `before: the message arrived and went unread.`,
         aboutDate: exam.date,
         aboutTitle: exam.title,
       });
