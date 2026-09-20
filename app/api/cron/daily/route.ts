@@ -3,6 +3,7 @@ import { briefingSubject, briefingText, buildBriefing } from "@/lib/briefing";
 import { briefingHtml } from "@/lib/briefing-html";
 import { coachingLine } from "@/lib/coach";
 import { listEvents } from "@/lib/db";
+import { skippedOccurrences } from "@/lib/attendance";
 import { doneNudges } from "@/lib/nudges";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import {
@@ -74,11 +75,11 @@ export async function GET(req: Request) {
   let coaching: string | undefined;
 
   try {
-    const [events, recipients, done] = await Promise.all([
-      listEvents(), listRecipients(), doneNudges(),
+    const [events, recipients, done, skipped] = await Promise.all([
+      listEvents(), listRecipients(), doneNudges(), skippedOccurrences(),
     ]);
 
-    const brief = buildBriefing(target, events, { done });
+    const brief = buildBriefing(target, events, { done, skipped });
 
     // Which evenings are actually open, so the coaching line can name one
     // rather than telling her to "find time".
@@ -94,8 +95,8 @@ export async function GET(req: Request) {
     coaching = await coachingLine(brief, freeEvenings);
     brief.coaching = coaching;
 
-    body = briefingText(target, events, { done, coaching });
-    subject = briefingSubject(target, events, { done });
+    body = briefingText(target, events, { done, coaching, skipped });
+    subject = briefingSubject(target, events, { done, skipped });
     html = briefingHtml(brief, new URL(req.url).origin);
     people = recipients.filter((r) => r.active);
   } catch (err) {

@@ -371,7 +371,7 @@ export function customFor(date: ISODate, items: StoredEvent[]): PlannerEvent[] {
 export function eventsFor(
   date: ISODate,
   items: StoredEvent[],
-  opts: { school?: boolean } = {},
+  opts: { school?: boolean; skipped?: Set<string> } = {},
 ): PlannerEvent[] {
   const includeSchool = opts.school !== false;
   const list = [
@@ -379,7 +379,13 @@ export function eventsFor(
     ...customFor(date, items),
     ...(includeSchool ? schoolMarkers(date) : []),
   ];
-  return list.sort((a, b) => {
+  // A declined occurrence is marked, not removed: she should still be able to
+  // see what she opted out of, and change her mind.
+  const marked = opts.skipped
+    ? list.map((ev) => (opts.skipped!.has(ev.id) ? { ...ev, skipped: true } : ev))
+    : list;
+
+  return marked.sort((a, b) => {
     if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
     if (a.allDay) return 0;
     return toMinutes(a.start) - toMinutes(b.start) || toMinutes(a.end) - toMinutes(b.end);
@@ -391,14 +397,14 @@ export function collectRange(
   from: ISODate,
   to: ISODate,
   items: StoredEvent[],
-  opts: { school?: boolean; cats?: Category[] } = {},
+  opts: { school?: boolean; cats?: Category[]; skipped?: Set<string> } = {},
 ): PlannerEvent[] {
   const start = clampTerm(from);
   const end = clampTerm(to);
   if (end < start) return [];
   const out: PlannerEvent[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) {
-    for (const ev of eventsFor(d, items, { school: opts.school })) {
+    for (const ev of eventsFor(d, items, { school: opts.school, skipped: opts.skipped })) {
       if (ev.cat === "school") {
         if (opts.school !== false) out.push(ev);
       } else if (!opts.cats || opts.cats.includes(ev.cat)) {

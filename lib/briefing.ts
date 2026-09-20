@@ -1,4 +1,5 @@
 import { classById, classesFor, displayTitle, whenLabel } from "./classes";
+import { conflictsOn, type Conflict } from "./conflicts";
 import { nudgesFor, type Nudge } from "./guidance";
 import {
   addDays, collectRange, dayInfo, dow, DOW_SHORT, eventsFor, fmtDate, fmtTime,
@@ -28,6 +29,8 @@ export interface Briefing {
   nudges: Nudge[];
   schedule: PlannerEvent[];
   coming: Array<{ ev: PlannerEvent; days: number }>;
+  /** Double-bookings on the day, called out separately from the list. */
+  conflicts: Conflict[];
   /** A sentence written by Claude, when one was available. */
   coaching?: string;
 }
@@ -35,15 +38,17 @@ export interface Briefing {
 export function buildBriefing(
   date: ISODate,
   events: StoredEvent[],
-  opts: { done?: Set<string>; horizonDays?: number } = {},
+  opts: { done?: Set<string>; horizonDays?: number; skipped?: Set<string> } = {},
 ): Briefing {
   const info = dayInfo(date);
-  const all = eventsFor(date, events, { school: false }).filter((e) => !SKIP.has(e.cat));
+  const all = eventsFor(date, events, { school: false, skipped: opts.skipped })
+    .filter((e) => !SKIP.has(e.cat));
 
   const coming = collectRange(addDays(date, 1), addDays(date, opts.horizonDays ?? 10), events, {
     school: false,
     cats: ["test", "project", "act"],
-  }).map((ev) => ({ ev, days: between(date, ev.date) }));
+    skipped: opts.skipped,
+  }).filter((ev) => !ev.skipped).map((ev) => ({ ev, days: between(date, ev.date) }));
 
   return {
     date,
@@ -53,8 +58,11 @@ export function buildBriefing(
     classes: classesFor(date).map((c) => ({ period: c.period, name: c.name, short: c.short })),
     // Nudges are computed for the day being briefed, which is why the evening
     // send still catches a "tomorrow" step.
-    nudges: nudgesFor(date, events, opts.done).slice(0, 7),
+    nudges: nudgesFor(date, events, opts.done, opts.skipped).slice(0, 7),
+    // Declined occurrences still appear on the day, struck through, so it is
+    // obvious what was dropped rather than the afternoon just looking empty.
     schedule: all,
+    conflicts: conflictsOn(date, events, opts.skipped ?? new Set()),
     coming,
   };
 }
@@ -73,9 +81,9 @@ function between(a: ISODate, b: ISODate): number {
 export function briefingText(
   date: ISODate,
   events: StoredEvent[],
-  opts: { done?: Set<string>; coaching?: string } = {},
+  opts: { done?: Set<string>; coaching?: string; skipped?: Set<string> } = {},
 ): string {
-  const b = buildBriefing(date, events, { done: opts.done });
+  const b = buildBriefing(date, events, { done: opts.done, skipped: opts.skipped });
   const lines: string[] = [];
 
   lines.push(`Uma · ${b.heading} · ${b.kind.toUpperCase()}${b.minDay ? " · MIN DAY" : ""}`);
@@ -100,7 +108,8 @@ export function briefingText(
     lines.push(`${label}: ${displayTitle(ev)}${where}${ev.notes ? ` — ${ev.notes}` : ""}`);
   }
   for (const ev of timed) {
-    lines.push(`${shortTime(ev.start)} ${ev.title}${ev.loc ? ` (${ev.loc})` : ""}`);
+    const mark = ev.skipped ? " (not going)" : "";
+    lines.push(`${shortTime(ev.start)} ${ev.title}${ev.loc ? ` (${ev.loc})` : ""}${mark}`);
   }
   if (!b.schedule.length) {
     lines.push(dayInfo(date).school ? "Nothing after school." : "Nothing scheduled.");
@@ -127,9 +136,9 @@ export function briefingText(
  * the day's headline item, because "Uma · Mon Sep 21" tells nobody anything.
  */
 export function briefingSubject(
-  date: ISODate, events: StoredEvent[], opts: { done?: Set<string> } = {},
+  date: ISODate, events: StoredEvent[], opts: { done?: Set<string>; skipped?: Set<string> } = {},
 ): string {
-  const b = buildBriefing(date, events, { done: opts.done });
+  const b = buildBriefing(date, events, { done: opts.done, skipped: opts.skipped });
   const head = `Uma · ${b.heading} (${b.kind})`;
 
   const urgent = b.nudges.find((n) => n.urgency === "now") ?? b.nudges[0];

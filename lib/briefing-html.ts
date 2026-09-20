@@ -1,5 +1,6 @@
 import { classById, displayTitle, whenLabel } from "./classes";
 import type { Briefing } from "./briefing";
+import { describeConflict } from "./conflicts";
 import { DOW_SHORT, dow, fmtDate, fmtRange } from "./schedule";
 import type { Nudge } from "./guidance";
 
@@ -97,7 +98,33 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
         padding:4px 8px;border-radius:3px;margin-left:5px">min day</span>` : ""}
   </td></tr>`);
 
-  // The one written sentence leads: it frames the checklist under it.
+  // A double-booking is an unmade decision, not a reminder, so it leads.
+  if (b.conflicts.length) {
+    parts.push(`
+    <tr><td style="padding:18px 0 0">
+      ${b.conflicts.map((c) => `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+             style="border-collapse:collapse;margin-bottom:8px">
+        <tr>
+          <td width="4" style="background:#c1121f;font-size:0;line-height:0">&nbsp;</td>
+          <td style="background:#fdf0f0;padding:11px 13px">
+            <div style="font:700 15px/1.35 Arial,Helvetica,sans-serif;color:${INK}">
+              Two things at once
+            </div>
+            <div style="font:400 13px/1.5 Arial,Helvetica,sans-serif;color:${INK};padding-top:4px">
+              ${esc(describeConflict(c))}. You cannot be at both.
+            </div>
+            <div style="font:400 12px/1.5 Arial,Helvetica,sans-serif;padding-top:8px">
+              <a href="${esc(appUrl ?? "#")}" style="color:#c1121f;font-weight:700">
+                Say which one you are going to &rarr;
+              </a>
+            </div>
+          </td>
+        </tr>
+      </table>`).join("")}
+    </td></tr>`);
+  }
+  // The written sentence comes next: it frames the checklist under it.
   if (b.coaching) {
     parts.push(`
     <tr><td style="padding:16px 0 0">
@@ -130,7 +157,10 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
       const when = ev.allDay
         ? (classById(ev.classId) ? esc(whenLabel(ev)) : "all day")
         : esc(fmtRange(ev.start, ev.end));
-      const title = esc(displayTitle(ev));
+      const title = ev.skipped
+        ? `<span style="text-decoration:line-through;color:${MUTED}">${esc(displayTitle(ev))}</span>`
+          + `<span style="color:${MUTED};font-weight:400"> — not going</span>`
+        : esc(displayTitle(ev));
       const extra = [ev.loc, ev.notes].filter(Boolean).map(esc).join(" &middot; ");
       return row(
         when,

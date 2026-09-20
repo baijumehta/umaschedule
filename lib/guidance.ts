@@ -13,7 +13,8 @@
  * these; it never decides what they are.
  */
 
-import { classById } from "./classes";
+import { classById, displayTitle } from "./classes";
+import { conflictsBetween, describeConflict, type Conflict } from "./conflicts";
 import {
   addDays, dayInfo, dow, DOW_SHORT, eventsFor, fmtDate, fmtTime, toMinutes,
 } from "./schedule";
@@ -34,6 +35,12 @@ export interface Nudge {
   suggestStudyMinutes?: number;
   /** A class to attach any study session to. */
   classId?: string;
+  /**
+   * A double-booking this nudge is about. Carries the clashing occurrences so
+   * the UI can offer "which one are you actually at?" rather than only saying
+   * that something is wrong.
+   */
+  conflict?: Conflict;
 }
 
 /**
@@ -189,15 +196,36 @@ export function nudgesFor(
   today: ISODate,
   events: StoredEvent[],
   done: Set<string> = new Set(),
+  skipped: Set<string> = new Set(),
 ): Nudge[] {
   const out: Nudge[] = [];
   const horizon = 45;
+
+  // Double-bookings come first: they are the only item here that is not a
+  // reminder but a decision, and leaving one unmade means the calendar is
+  // lying to everyone subscribed to it.
+  for (const clash of conflictsBetween(today, addDays(today, 14), events, skipped)) {
+    if (done.has(clash.id)) continue;
+    const away = daysBetween(today, clash.date);
+    out.push({
+      id: clash.id,
+      urgency: away <= 1 ? "now" : away <= 4 ? "soon" : "ahead",
+      title: `Two things at once on ${DOW_SHORT[dow(clash.date)]} ${fmtDate(clash.date)}`,
+      detail:
+        `${describeConflict(clash)}. You cannot be at both — say which one you are going to ` +
+        `and the other comes off the calendar, so nobody turns up expecting you.`,
+      aboutDate: clash.date,
+      conflict: clash,
+    });
+  }
 
   for (let i = 0; i <= horizon; i++) {
     const date = addDays(today, i);
     const away = i;
 
-    for (const ev of eventsFor(date, events, { school: false })) {
+    for (const ev of eventsFor(date, events, { school: false, skipped })) {
+      // A commitment she has declined needs no prep reminders.
+      if (ev.skipped) continue;
       const key = ev.sourceId ?? ev.id;
       const when = `${DOW_SHORT[dow(date)]} ${fmtDate(date)}`;
 

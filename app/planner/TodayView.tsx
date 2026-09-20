@@ -18,6 +18,9 @@ interface Props {
   events: StoredEvent[];
   /** Nudge ids already ticked off, so they stay down. */
   doneNudges: Set<string>;
+  /** Occurrences she has declined. */
+  skipped: Set<string>;
+  onSkipped: (ids: string[]) => void;
   onEdit: (sourceId: string) => void;
   onAdd: (date: ISODate) => void;
   onOpenWeek: (date: ISODate) => void;
@@ -33,13 +36,13 @@ interface Props {
  * timeline, then deadlines far enough out to still do something about.
  */
 export function TodayView({
-  today, events, doneNudges, onEdit, onAdd, onOpenWeek, onSave, onNudgeDone,
+  today, events, doneNudges, skipped, onSkipped, onEdit, onAdd, onOpenWeek, onSave, onNudgeDone,
 }: Props) {
   const info = dayInfo(today);
   const classes = classesFor(today);
-  const timed = eventsFor(today, events, { school: false }).filter((e) => !e.allDay);
-  const dueToday = eventsFor(today, events, { school: false }).filter(
-    (e) => e.allDay && (e.cat === "test" || e.cat === "project"),
+  const timed = eventsFor(today, events, { school: false, skipped }).filter((e) => !e.allDay);
+  const dueToday = eventsFor(today, events, { school: false, skipped }).filter(
+    (e) => e.allDay && (e.cat === "test" || e.cat === "project") && !e.skipped,
   );
 
   const upcoming = collectRange(addDays(today, 1), addDays(today, HORIZON_DAYS), events, {
@@ -53,9 +56,12 @@ export function TodayView({
   // The next-school-day panel can jump over a weekend, so an 8am Sunday meeting
   // would otherwise appear nowhere on the one screen she checks each morning.
   const tomorrow = addDays(today, 1);
-  const tomorrowItems = eventsFor(tomorrow, events, { school: false });
+  const tomorrowItems = eventsFor(tomorrow, events, { school: false, skipped });
 
-  const busyMinutes = timed.reduce((t, e) => t + (toMinutes(e.end) - toMinutes(e.start)), 0);
+  // Something she is not attending does not count against her afternoon.
+  const busyMinutes = timed
+    .filter((e) => !e.skipped)
+    .reduce((t, e) => t + (toMinutes(e.end) - toMinutes(e.start)), 0);
   const brk = breakSpan(today);
 
   return (
@@ -91,10 +97,11 @@ export function TodayView({
       {/* ---- what to act on, before what is merely scheduled ---- */}
       <NudgeList
         today={today}
-        nudges={nudgesFor(today, events, doneNudges)}
+        nudges={nudgesFor(today, events, doneNudges, skipped)}
         events={events}
         onSave={onSave}
         onDone={onNudgeDone}
+        onSkipped={onSkipped}
       />
 
       {/* ---- anything that needs attention right now ---- */}
@@ -143,12 +150,14 @@ export function TodayView({
         ) : (
           <div className="timeline">
             {timed.map((ev) => (
-              <div className="tl" key={ev.id}>
+              <div className={"tl" + (ev.skipped ? " tl-skipped" : "")} key={ev.id}>
                 <span className="tl-time mono">{fmtRange(ev.start, ev.end)}</span>
                 <span className="tl-rail" style={{ background: railFor(ev) }} />
                 <span className="tl-main">
                   <span className="tl-title">{displayTitle(ev)}</span>
-                  {ev.loc && <span className="tl-loc">{ev.loc}</span>}
+                  {ev.skipped
+                    ? <span className="tl-loc">Not going</span>
+                    : ev.loc && <span className="tl-loc">{ev.loc}</span>}
                 </span>
               </div>
             ))}

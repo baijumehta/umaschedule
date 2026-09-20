@@ -7,6 +7,7 @@ import { classById } from "@/lib/classes";
 import { DOW_SHORT, dow, fmtDate, fmtRange } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
 import { newId, readKey } from "./api";
+import { ConflictChoice } from "./ConflictChoice";
 
 interface Props {
   today: ISODate;
@@ -14,6 +15,7 @@ interface Props {
   events: StoredEvent[];
   onSave: (ev: StoredEvent) => Promise<void> | void;
   onDone: (id: string) => void;
+  onSkipped: (ids: string[]) => void;
 }
 
 const LABEL: Record<Nudge["urgency"], string> = {
@@ -29,7 +31,7 @@ const LABEL: Record<Nudge["urgency"], string> = {
  * app offers to take it — a test five days out comes with real free evenings
  * to put study time in, rather than an instruction to find some.
  */
-export function NudgeList({ today, nudges, events, onSave, onDone }: Props) {
+export function NudgeList({ today, nudges, events, onSave, onDone, onSkipped }: Props) {
   const [openFor, setOpenFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,6 +61,7 @@ export function NudgeList({ today, nudges, events, onSave, onDone }: Props) {
             onToggleSlots={() => setOpenFor(openFor === n.id ? null : n.id)}
             onSave={async (ev) => { setBusy(true); try { await onSave(ev); } finally { setBusy(false); setOpenFor(null); } }}
             onDone={onDone}
+            onSkipped={onSkipped}
           />
         ))}
       </div>
@@ -67,7 +70,7 @@ export function NudgeList({ today, nudges, events, onSave, onDone }: Props) {
 }
 
 function NudgeRow({
-  nudge, today, events, open, busy, onToggleSlots, onSave, onDone,
+  nudge, today, events, open, busy, onToggleSlots, onSave, onDone, onSkipped,
 }: {
   nudge: Nudge;
   today: ISODate;
@@ -77,6 +80,7 @@ function NudgeRow({
   onToggleSlots: () => void;
   onSave: (ev: StoredEvent) => Promise<void>;
   onDone: (id: string) => void;
+  onSkipped: (ids: string[]) => void;
 }) {
   const minutes = nudge.suggestStudyMinutes ?? 0;
 
@@ -132,15 +136,24 @@ function NudgeRow({
           </div>
         )}
 
+        {nudge.conflict && (
+          <ConflictChoice
+            conflict={nudge.conflict}
+            onResolved={(ids) => { onSkipped(ids); onDone(nudge.id); }}
+          />
+        )}
+
         <div className="nudge-actions">
           {slots.length > 0 && (
             <button className="btn" onClick={onToggleSlots} disabled={busy}>
               {open ? "Never mind" : `Find time to study`}
             </button>
           )}
-          <button className="btn btn-ghost" onClick={dismiss} disabled={busy}>
-            Done
-          </button>
+          {!nudge.conflict && (
+            <button className="btn btn-ghost" onClick={dismiss} disabled={busy}>
+              Done
+            </button>
+          )}
         </div>
 
         {open && slots.length > 0 && (

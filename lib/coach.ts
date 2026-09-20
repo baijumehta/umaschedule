@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Briefing } from "./briefing";
 import { displayTitle } from "./classes";
+import { describeConflict } from "./conflicts";
 import { DOW_SHORT, dow, fmtDate, fmtRange } from "./schedule";
 
 /**
@@ -30,6 +31,8 @@ const SYSTEM = [
   "- Address her directly, plainly. No greeting, no sign-off, no exclamation marks.",
   "- No praise for things she has not done, and no lecturing.",
   "- If the day is genuinely quiet, say so briefly. Do not manufacture urgency.",
+  "- Never tell her to resolve a clash she has already decided. An item marked",
+  "  NOT GOING is settled; treat that time as free.",
   "- If nothing useful can be added, reply with exactly: NOTHING",
 ].join("\n");
 
@@ -50,10 +53,18 @@ function describe(b: Briefing, freeEvenings: string[]): string {
     lines.push("On the day:");
     for (const ev of b.schedule) {
       const when = ev.allDay ? "all day" : fmtRange(ev.start, ev.end);
-      lines.push(`  - ${when}: ${displayTitle(ev)}${ev.loc ? ` at ${ev.loc}` : ""}${ev.notes ? ` (${ev.notes})` : ""}`);
+      const declined = ev.skipped ? " [SHE IS NOT GOING TO THIS - already decided]" : "";
+      lines.push(`  - ${when}: ${displayTitle(ev)}${ev.loc ? ` at ${ev.loc}` : ""}${ev.notes ? ` (${ev.notes})` : ""}${declined}`);
     }
   } else {
     lines.push("On the day: nothing scheduled");
+  }
+
+  if (b.conflicts.length) {
+    lines.push("Unresolved double-bookings she still has to choose between:");
+    for (const c of b.conflicts) lines.push(`  - ${describeConflict(c)}`);
+  } else {
+    lines.push("No unresolved double-bookings.");
   }
 
   if (b.coming.length) {

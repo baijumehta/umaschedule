@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { addDays, clampTerm, D, dow, mondayOf } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
+import { HEADER } from "@/lib/auth";
 import { api, NotAuthorized, readKey, writeKey } from "./api";
 import { CalendarPanel } from "./CalendarPanel";
 import { EventDialog } from "./EventDialog";
@@ -29,6 +30,7 @@ export function Planner({ today }: { today: ISODate }) {
   const [month, setMonth] = useState<string>(() => clampTerm(today).slice(0, 7));
 
   const [doneNudges, setDoneNudges] = useState<Set<string>>(new Set());
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StoredEvent | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -54,6 +56,24 @@ export function Planner({ today }: { today: ISODate }) {
     if (!readKey()) { setAuthed(false); return; }
     load().catch(() => { /* Handled by state above. */ });
   }, [load]);
+
+  // Decisions already recorded, so a resolved clash does not come back on reload.
+  useEffect(() => {
+    if (authed !== true) return;
+    let cancelled = false;
+    fetch("/api/attendance", { headers: { [HEADER]: readKey() }, cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (cancelled || !b?.decisions) return;
+        setSkipped(new Set(
+          (b.decisions as Array<{ occurrenceId: string; attending: boolean }>)
+            .filter((d) => !d.attending)
+            .map((d) => d.occurrenceId),
+        ));
+      })
+      .catch(() => { /* Clashes simply stay unresolved for this visit. */ });
+    return () => { cancelled = true; };
+  }, [authed]);
 
   async function unlock(key: string) {
     setGateBusy(true);
@@ -188,6 +208,14 @@ export function Planner({ today }: { today: ISODate }) {
             <TodayView
               today={today} events={events}
               doneNudges={doneNudges}
+              skipped={skipped}
+              onSkipped={(ids) =>
+                setSkipped((prev) => {
+                  const next = new Set(prev);
+                  for (const id of ids) next.add(id);
+                  return next;
+                })
+              }
               onEdit={openEdit}
               onAdd={(d) => openAdd(d)}
               onOpenWeek={jumpToDay}
@@ -204,7 +232,7 @@ export function Planner({ today }: { today: ISODate }) {
 
         {tab === "week" && (
           <WeekView
-            weekStart={weekStart} today={today} events={events}
+            weekStart={weekStart} today={today} events={events} skipped={skipped}
             onShift={(n) => setWeekStart((w) => addDays(w, n * 7))}
             onToday={() => setWeekStart(mondayOf(clampTerm(today)))}
             onEdit={openEdit}

@@ -58,6 +58,8 @@ export interface PlannerEvent {
   sourceId?: string;
   /** Carried through from the stored row so the UI can name the course. */
   classId?: string;
+  /** She has said she is not attending this occurrence. Shown, not deleted. */
+  skipped?: boolean;
 }
 
 export interface DayInfo {

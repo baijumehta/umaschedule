@@ -114,3 +114,17 @@ create table if not exists nudge_state (
   id       text primary key,
   done_at  timestamptz not null default now()
 );
+
+-- Which occurrences she is NOT attending.
+--
+-- Keyed on the occurrence id, not the event id, so it works for the derived
+-- half of the schedule too: "lax-2026-09-21" skips one practice without
+-- touching the rule that generates practice, and a weekly tutoring slot can
+-- lose a single week. attending=false is the interesting row; a true row is
+-- an explicit "yes I am going", which resolves a clash the other way.
+create table if not exists attendance (
+  occurrence_id text primary key,
+  attending     boolean not null,
+  note          text not null default '' check (length(note) <= 200),
+  decided_at    timestamptz not null default now()
+);

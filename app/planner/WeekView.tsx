@@ -11,6 +11,7 @@ interface Props {
   weekStart: ISODate;
   today: ISODate;
   events: StoredEvent[];
+  skipped: Set<string>;
   onShift: (weeks: number) => void;
   onToday: () => void;
   onEdit: (sourceId: string) => void;
@@ -20,7 +21,7 @@ interface Props {
  * The week as a stack of day rows rather than a column grid: a day with five
  * things on it just gets taller, and the same layout works at phone width.
  */
-export function WeekView({ weekStart, today, events, onShift, onToday, onEdit }: Props) {
+export function WeekView({ weekStart, today, events, skipped, onShift, onToday, onEdit }: Props) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
@@ -44,7 +45,7 @@ export function WeekView({ weekStart, today, events, onShift, onToday, onEdit }:
       <div className="days">
         {days.map((date) => {
           const info = dayInfo(date);
-          const list = eventsFor(date, events);
+          const list = eventsFor(date, events, { skipped });
           const brk = breakSpan(date);
           const classes = [
             "day",

@@ -26,7 +26,7 @@ export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId:
   const cls = classById(ev.classId);
 
   return (
-    <div className="ev">
+    <div className={"ev" + (ev.skipped ? " ev-skipped" : "")}>
       <div className="ev-time mono">{whenLabel(ev)}</div>
       <div className="ev-main">
         <div className="ev-title">
@@ -46,7 +46,9 @@ export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId:
             </span>
           )}
         </div>
-        {ev.loc && <div className="ev-loc">{ev.loc}</div>}
+        {ev.skipped
+          ? <div className="ev-loc">Not going</div>
+          : ev.loc && <div className="ev-loc">{ev.loc}</div>}
         {ev.notes && <div className="ev-notes">{ev.notes}</div>}
       </div>
       {!ev.fixed && onEdit ? (

@@ -1,5 +1,6 @@
 import { isFeedToken, refuse } from "@/lib/auth";
 import { buildIcs } from "@/lib/calendar";
+import { skippedOccurrences } from "@/lib/attendance";
 import { lastChangedAt, listEvents } from "@/lib/db";
 import { collectRange, TERM_END, TERM_START } from "@/lib/schedule";
 import type { Category } from "@/lib/types";
@@ -39,9 +40,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const alarms = url.searchParams.get("alarms") !== "0";
 
   try {
-    const [events, changedAt] = await Promise.all([listEvents(), lastChangedAt()]);
+    const [events, changedAt, skipped] = await Promise.all([
+      listEvents(), lastChangedAt(), skippedOccurrences(),
+    ]);
     const body = buildIcs(
-      collectRange(TERM_START, TERM_END, events, { school, cats }),
+      // A declined occurrence leaves the feed entirely — anyone subscribed
+      // should see it disappear, not see it and expect her there.
+      collectRange(TERM_START, TERM_END, events, { school, cats, skipped })
+        .filter((ev) => !ev.skipped),
       { alarms, name: "Uma — School Year" },
     );
 
