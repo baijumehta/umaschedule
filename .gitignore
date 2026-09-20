@@ -10,3 +10,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Never ship a rendered briefing: public/ is served without the household key.
+public/_email-preview.html

@@ -28,7 +28,7 @@ const addressed = (name: string, addr: string) =>
   name.trim() ? `${name.replace(/[<>",]/g, "").trim()} <${addr}>` : addr;
 
 export async function sendEmail(
-  to: string, name: string, subject: string, text: string,
+  to: string, name: string, subject: string, text: string, html: string,
 ): Promise<EmailResult> {
   const key = process.env.SMTP2GO_API_KEY;
   const sender = process.env.SMTP2GO_SENDER;
@@ -43,7 +43,7 @@ export async function sendEmail(
         to: [addressed(name, to)],
         subject,
         text_body: text,
-        html_body: htmlBody(text),
+        html_body: html,
       }),
     });
 
@@ -77,27 +77,4 @@ export async function sendEmail(
   } catch (err) {
     return { to, ok: false, error: err instanceof Error ? err.message : "Could not reach SMTP2GO" };
   }
-}
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/**
- * The plain text is the message; this only makes it legible in a mail client.
- * Monospaced so the times line up, and readable on either background.
- */
-function htmlBody(text: string): string {
-  const [heading, ...rest] = text.split("\n");
-  return [
-    '<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;',
-    'font-size:15px;line-height:1.55;color:#1a1815;max-width:32em">',
-    `<div style="font-weight:700;font-size:17px;margin-bottom:10px">${escapeHtml(heading)}</div>`,
-    '<div style="white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;',
-    'font-size:13.5px;background:#f3f1ec;border:1px solid #ddd8ce;border-radius:8px;padding:12px 14px">',
-    escapeHtml(rest.join("\n")),
-    "</div>",
-    '<div style="font-size:12px;color:#867e72;margin-top:12px">',
-    "Uma&rsquo;s Block Planner &middot; sent the evening before",
-    "</div></div>",
-  ].join("");
 }

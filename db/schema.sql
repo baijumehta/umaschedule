@@ -107,3 +107,10 @@ create table if not exists send_log (
 );
 
 drop table if exists sms_log;
+
+-- A nudge that has been dealt with. Ids are deterministic (rule + event + step)
+-- so ticking one off keeps it down without deleting the event it came from.
+create table if not exists nudge_state (
+  id       text primary key,
+  done_at  timestamptz not null default now()
+);

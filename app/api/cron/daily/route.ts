@@ -1,11 +1,15 @@
 import { hasHouseholdKey } from "@/lib/auth";
-import { briefingSubject, briefingText } from "@/lib/briefing";
+import { briefingSubject, briefingText, buildBriefing } from "@/lib/briefing";
+import { briefingHtml } from "@/lib/briefing-html";
+import { coachingLine } from "@/lib/coach";
 import { listEvents } from "@/lib/db";
+import { doneNudges } from "@/lib/nudges";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import {
   claimSend, listRecipients, recordSend, releaseSend, type Channel, type Recipient,
 } from "@/lib/recipients";
-import { addDays, clampTerm, TERM_END, TERM_START } from "@/lib/schedule";
+import { freeSlots } from "@/lib/guidance";
+import { addDays, clampTerm, DOW_SHORT, dow, fmtDate, TERM_END, TERM_START } from "@/lib/schedule";
 import { sendSms, smsConfigured } from "@/lib/sms";
 
 export const runtime = "nodejs";
@@ -64,12 +68,35 @@ export async function GET(req: Request) {
   }
 
   let body: string;
+  let html: string;
   let subject: string;
   let people: Recipient[];
+  let coaching: string | undefined;
+
   try {
-    const [events, recipients] = await Promise.all([listEvents(), listRecipients()]);
-    body = briefingText(target, events);
-    subject = briefingSubject(target, events);
+    const [events, recipients, done] = await Promise.all([
+      listEvents(), listRecipients(), doneNudges(),
+    ]);
+
+    const brief = buildBriefing(target, events, { done });
+
+    // Which evenings are actually open, so the coaching line can name one
+    // rather than telling her to "find time".
+    const freeEvenings: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(target, i);
+      if (freeSlots(d, events, 60).length) {
+        freeEvenings.push(`${DOW_SHORT[dow(d)]} ${fmtDate(d)}`);
+      }
+    }
+
+    // Best effort: a missing coaching line is fine, a missing briefing is not.
+    coaching = await coachingLine(brief, freeEvenings);
+    brief.coaching = coaching;
+
+    body = briefingText(target, events, { done, coaching });
+    subject = briefingSubject(target, events, { done });
+    html = briefingHtml(brief, new URL(req.url).origin);
     people = recipients.filter((r) => r.active);
   } catch (err) {
     console.error("[cron/daily] build", err);
@@ -81,7 +108,7 @@ export async function GET(req: Request) {
 
   if (dry) {
     return json({
-      dry: true, target, subject, body,
+      dry: true, target, subject, body, html, coaching,
       channels: { sms: canText, email: canMail },
       wouldSendTo: people.flatMap((p) => [
         ...(p.phone && canText ? [`${p.name} (text)`] : []),
@@ -121,7 +148,7 @@ export async function GET(req: Request) {
         const r = await sendSms(address, body);
         ok = r.ok; ref = r.sid ?? ""; error = r.error;
       } else {
-        const r = await sendEmail(address, person.name, subject, body);
+        const r = await sendEmail(address, person.name, subject, body, html);
         ok = r.ok; ref = r.id ?? ""; error = r.error;
       }
 

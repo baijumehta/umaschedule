@@ -28,6 +28,7 @@ export function Planner({ today }: { today: ISODate }) {
   const [weekStart, setWeekStart] = useState<ISODate>(() => mondayOf(clampTerm(today)));
   const [month, setMonth] = useState<string>(() => clampTerm(today).slice(0, 7));
 
+  const [doneNudges, setDoneNudges] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StoredEvent | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -186,9 +187,12 @@ export function Planner({ today }: { today: ISODate }) {
           <>
             <TodayView
               today={today} events={events}
+              doneNudges={doneNudges}
               onEdit={openEdit}
               onAdd={(d) => openAdd(d)}
               onOpenWeek={jumpToDay}
+              onSave={save}
+              onNudgeDone={(id) => setDoneNudges((prev) => new Set(prev).add(id))}
             />
             <QuickAdd
               today={today} events={events}

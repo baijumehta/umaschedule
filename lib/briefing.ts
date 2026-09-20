@@ -1,145 +1,162 @@
 import { classById, classesFor, displayTitle, whenLabel } from "./classes";
+import { nudgesFor, type Nudge } from "./guidance";
 import {
   addDays, collectRange, dayInfo, dow, DOW_SHORT, eventsFor, fmtDate, fmtTime,
 } from "./schedule";
-import type { ISODate, StoredEvent } from "./types";
+import type { ISODate, PlannerEvent, StoredEvent } from "./types";
 
 /**
- * The day, in the length of a text message.
+ * One day, as a structure — then rendered as text for SMS and as HTML for
+ * email from that same structure, so the two can never drift apart.
  *
- * Built from the same rules the Today tab renders, so the text and the app can
- * never disagree. Written to be read on a lock screen: the block letter first,
- * because it decides where practice is, then only what someone has to act on.
+ * The ordering is the argument of the whole app: what she should *do* comes
+ * before what is *on*. A list of commitments is what she already had.
  */
 
-/** The 7:45 inbox sweep is a habit, not news — it would be noise in a text. */
-const SKIP_IN_SMS = new Set(["email"]);
+/** The 7:45 inbox sweep is a habit, not news — noise in a digest. */
+const SKIP = new Set(["email"]);
 
-/** Short clock, so "1:45pm" costs 6 characters rather than 8. */
 const shortTime = (t: string) => fmtTime(t).replace("am", "a").replace("pm", "p");
 
-export interface BriefingOptions {
-  /** How far ahead to mention tests and deadlines. */
-  horizonDays?: number;
-  /** Prefix each line with her name — useful when several people get it. */
-  name?: string;
+export interface Briefing {
+  date: ISODate;
+  heading: string;
+  /** "odd day", "Thanksgiving break". */
+  kind: string;
+  minDay: boolean;
+  classes: Array<{ period: number; name: string; short: string }>;
+  nudges: Nudge[];
+  schedule: PlannerEvent[];
+  coming: Array<{ ev: PlannerEvent; days: number }>;
+  /** A sentence written by Claude, when one was available. */
+  coaching?: string;
 }
+
+export function buildBriefing(
+  date: ISODate,
+  events: StoredEvent[],
+  opts: { done?: Set<string>; horizonDays?: number } = {},
+): Briefing {
+  const info = dayInfo(date);
+  const all = eventsFor(date, events, { school: false }).filter((e) => !SKIP.has(e.cat));
+
+  const coming = collectRange(addDays(date, 1), addDays(date, opts.horizonDays ?? 10), events, {
+    school: false,
+    cats: ["test", "project", "act"],
+  }).map((ev) => ({ ev, days: between(date, ev.date) }));
+
+  return {
+    date,
+    heading: `${DOW_SHORT[dow(date)]} ${fmtDate(date)}`,
+    kind: info.school ? `${info.block} day` : info.reason ?? "No school",
+    minDay: Boolean(info.school && info.min),
+    classes: classesFor(date).map((c) => ({ period: c.period, name: c.name, short: c.short })),
+    // Nudges are computed for the day being briefed, which is why the evening
+    // send still catches a "tomorrow" step.
+    nudges: nudgesFor(date, events, opts.done).slice(0, 7),
+    schedule: all,
+    coming,
+  };
+}
+
+function between(a: ISODate, b: ISODate): number {
+  let n = 0;
+  let cur = a;
+  while (cur < b && n < 400) { cur = addDays(cur, 1); n++; }
+  return n;
+}
+
+/* ------------------------------------------------------------------ *
+ * Plain text — for SMS, and as the email's text alternative
+ * ------------------------------------------------------------------ */
 
 export function briefingText(
   date: ISODate,
   events: StoredEvent[],
-  opts: BriefingOptions = {},
+  opts: { done?: Set<string>; coaching?: string } = {},
 ): string {
-  const horizon = opts.horizonDays ?? 10;
-  const info = dayInfo(date);
-  const who = opts.name ?? "Uma";
+  const b = buildBriefing(date, events, { done: opts.done });
   const lines: string[] = [];
 
-  const heading = `${who} · ${DOW_SHORT[dow(date)]} ${fmtDate(date)}`;
-  lines.push(info.school ? `${heading} · ${info.block?.toUpperCase()}${info.min ? " · MIN DAY" : ""}` : heading);
+  lines.push(`Uma · ${b.heading} · ${b.kind.toUpperCase()}${b.minDay ? " · MIN DAY" : ""}`);
 
-  if (!info.school) {
-    lines.push(info.reason ?? "No school");
-  } else {
-    const classes = classesFor(date);
-    if (classes.length) {
-      lines.push("Classes: " + classes.map((c) => `${c.period} ${c.short}`).join(", "));
-    }
+  if (b.nudges.length) {
+    lines.push("");
+    lines.push("DO THIS:");
+    for (const n of b.nudges) lines.push(`• ${n.title}`);
   }
 
-  const all = eventsFor(date, events, { school: false })
-    .filter((e) => !SKIP_IN_SMS.has(e.cat));
+  if (b.classes.length) {
+    lines.push("");
+    lines.push("Classes: " + b.classes.map((c) => `${c.period} ${c.short}`).join(", "));
+  }
 
-  const dueToday = all.filter((e) => e.allDay);
-  const timed = all.filter((e) => !e.allDay);
-
-  for (const ev of dueToday) {
-    // Never "Today" — this is read the evening before, when today is the wrong day.
+  const timed = b.schedule.filter((e) => !e.allDay);
+  const allDay = b.schedule.filter((e) => e.allDay);
+  if (allDay.length || timed.length) lines.push("");
+  for (const ev of allDay) {
     const label = ev.cat === "test" ? "TEST" : ev.cat === "project" ? "DUE" : "All day";
-    // An all-day item is the one whose timing is unresolved, so its note
-    // ("schedule to be announced") is the part actually worth carrying.
-    const note = ev.notes ? ` — ${ev.notes}` : "";
-    // A test belongs to a period, so say which one rather than "all day".
     const where = classById(ev.classId) ? ` (${whenLabel(ev)})` : "";
-    lines.push(`${label}: ${displayTitle(ev)}${where}${note}`);
+    lines.push(`${label}: ${displayTitle(ev)}${where}${ev.notes ? ` — ${ev.notes}` : ""}`);
   }
-
   for (const ev of timed) {
     lines.push(`${shortTime(ev.start)} ${ev.title}${ev.loc ? ` (${ev.loc})` : ""}`);
   }
-
-  if (!dueToday.length && !timed.length) {
-    lines.push(info.school ? "Nothing after school." : "Nothing scheduled.");
+  if (!b.schedule.length) {
+    lines.push(dayInfo(date).school ? "Nothing after school." : "Nothing scheduled.");
   }
 
-  // Deadlines far enough out to still act on, but not so far they are noise.
-  const ahead = collectRange(addDays(date, 1), addDays(date, horizon), events, {
-    school: false,
-    cats: ["test", "project"],
-  });
-  if (ahead.length) {
-    const soon = ahead.slice(0, 3).map((ev) => {
-      const days = daysBetween(date, ev.date);
-      return `${displayTitle(ev)} ${DOW_SHORT[dow(ev.date)]} (${days}d)`;
-    });
-    lines.push("Coming: " + soon.join("; "));
+  if (b.coming.length) {
+    lines.push("");
+    lines.push("Coming: " + b.coming.slice(0, 3)
+      .map(({ ev, days }) => `${displayTitle(ev)} ${DOW_SHORT[dow(ev.date)]} (${days}d)`)
+      .join("; "));
+  }
+
+  if (opts.coaching) {
+    lines.push("");
+    lines.push(opts.coaching);
   }
 
   return lines.join("\n");
 }
 
-function daysBetween(a: ISODate, b: ISODate): number {
-  let n = 0;
-  let cur = a;
-  while (cur < b && n < 400) {
-    cur = addDays(cur, 1);
-    n++;
+/**
+ * The subject line — for an email, the part that actually shows in the
+ * notification. It leads with the most pressing thing to do, falling back to
+ * the day's headline item, because "Uma · Mon Sep 21" tells nobody anything.
+ */
+export function briefingSubject(
+  date: ISODate, events: StoredEvent[], opts: { done?: Set<string> } = {},
+): string {
+  const b = buildBriefing(date, events, { done: opts.done });
+  const head = `Uma · ${b.heading} (${b.kind})`;
+
+  const urgent = b.nudges.find((n) => n.urgency === "now") ?? b.nudges[0];
+  if (urgent) {
+    // Name what it is about: "Final review tonight" alone says nothing in an
+    // inbox, and the subject line is all some people will read.
+    const about = urgent.aboutTitle ? ` — ${urgent.aboutTitle}` : "";
+    return `${head}: ${urgent.title}${about}`;
   }
-  return n;
+
+  const test = b.schedule.find((e) => e.cat === "test");
+  const first = b.schedule.find((e) => !e.allDay) ?? b.schedule[0];
+  const lead = test
+    ? (/\b(test|quiz|exam)s?\b/i.test(test.title) ? displayTitle(test) : `${displayTitle(test)} test`)
+    : first
+      ? (first.allDay ? displayTitle(first) : `${shortTime(first.start)} ${first.title}`)
+      : "";
+
+  if (!lead) return head + (dayInfo(date).school ? ": nothing after school" : "");
+  const extra = b.schedule.length - 1;
+  return `${head}: ${lead}${extra > 0 ? ` +${extra} more` : ""}`;
 }
 
-/** Roughly how many SMS segments a body will cost, for the preview in the UI. */
+/** Roughly how many SMS segments a body costs, for the preview in the UI. */
 export function segments(body: string): number {
   const unicode = /[^\x00-\x7F]/.test(body);
   const limit = unicode ? 70 : 160;
   const multi = unicode ? 67 : 153;
   return body.length <= limit ? 1 : Math.ceil(body.length / multi);
-}
-
-/**
- * The subject line — which, for an email, is the part that actually shows in
- * the notification. So it leads with the single most actionable thing on the
- * day rather than restating the date twice.
- */
-export function briefingSubject(date: ISODate, events: StoredEvent[]): string {
-  const info = dayInfo(date);
-  const when = `${DOW_SHORT[dow(date)]} ${fmtDate(date)}`;
-  const kind = info.school ? (info.min ? `${info.block}, min day` : info.block ?? "") : info.reason ?? "";
-  const head = `Uma · ${when}${kind ? ` (${kind})` : ""}`;
-
-  const all = eventsFor(date, events, { school: false }).filter((e) => !SKIP_IN_SMS.has(e.cat));
-  const test = all.find((e) => e.cat === "test");
-  const due = all.find((e) => e.cat === "project");
-  const first = all.find((e) => !e.allDay) ?? all[0];
-
-  // Only add the kind word when the title does not already carry it, or a
-  // "Biology test" turns into "Biology test test".
-  const says = (title: string, words: RegExp) => words.test(title);
-  const lead = test
-    ? says(test.title, /\b(test|quiz|exam|midterm|final)s?\b/i)
-      ? displayTitle(test)
-      : `${displayTitle(test)} test`
-    : due
-      ? says(due.title, /\b(due|project|essay|paper|report|presentation)s?\b/i)
-        ? displayTitle(due)
-        : `${displayTitle(due)} due`
-      : first
-        ? (first.allDay ? displayTitle(first) : `${shortTime(first.start)} ${first.title}`)
-        : "";
-
-  if (!lead) return head + (info.school ? ": nothing after school" : "");
-
-  // A colon, not a dash: displayTitle already contains an em dash of its own.
-  const extra = all.length - 1;
-  return `${head}: ${lead}${extra > 0 ? ` +${extra} more` : ""}`;
 }

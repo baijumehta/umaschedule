@@ -6,7 +6,9 @@ import {
   eventsFor, fmtDate, fmtRange, nextSchoolDay, TERM_END, toMinutes,
 } from "@/lib/schedule";
 import type { ISODate, PlannerEvent, StoredEvent } from "@/lib/types";
+import { nudgesFor } from "@/lib/guidance";
 import { BlockChip, CatDot } from "./bits";
+import { NudgeList } from "./NudgeList";
 
 /** How far ahead the "coming up" list looks for tests and deadlines. */
 const HORIZON_DAYS = 21;
@@ -14,9 +16,13 @@ const HORIZON_DAYS = 21;
 interface Props {
   today: ISODate;
   events: StoredEvent[];
+  /** Nudge ids already ticked off, so they stay down. */
+  doneNudges: Set<string>;
   onEdit: (sourceId: string) => void;
   onAdd: (date: ISODate) => void;
   onOpenWeek: (date: ISODate) => void;
+  onSave: (ev: StoredEvent) => Promise<void> | void;
+  onNudgeDone: (id: string) => void;
 }
 
 /**
@@ -26,7 +32,9 @@ interface Props {
  * which classes actually meet (the block letter decides), then the day's
  * timeline, then deadlines far enough out to still do something about.
  */
-export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
+export function TodayView({
+  today, events, doneNudges, onEdit, onAdd, onOpenWeek, onSave, onNudgeDone,
+}: Props) {
   const info = dayInfo(today);
   const classes = classesFor(today);
   const timed = eventsFor(today, events, { school: false }).filter((e) => !e.allDay);
@@ -79,6 +87,15 @@ export function TodayView({ today, events, onEdit, onAdd, onOpenWeek }: Props) {
           <NextUp date={nextDay!} events={events} onOpenWeek={onOpenWeek} />
         ) : null}
       </section>
+
+      {/* ---- what to act on, before what is merely scheduled ---- */}
+      <NudgeList
+        today={today}
+        nudges={nudgesFor(today, events, doneNudges)}
+        events={events}
+        onSave={onSave}
+        onDone={onNudgeDone}
+      />
 
       {/* ---- anything that needs attention right now ---- */}
       {dueToday.length > 0 && (

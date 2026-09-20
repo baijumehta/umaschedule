@@ -493,3 +493,36 @@ code, .code {
 .person:first-child { border-top: 0; }
 .person-name { font-weight: 600; font-size: 14.5px; }
 .person-phone { font-size: 12.5px; color: var(--ink3); flex: 1; }
+
+/* ---------- guidance ---------- */
+.nudges { display: flex; flex-direction: column; gap: 10px; }
+.nudge {
+  display: flex; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--rule); background: var(--paper);
+}
+.nudge::before { content: ""; width: 4px; flex: none; }
+.nudge-now::before { background: var(--c-test); }
+.nudge-soon::before { background: var(--c-study); }
+.nudge-ahead::before { background: var(--gold); }
+.nudge-now { background: var(--c-test-bg); border-color: color-mix(in srgb, var(--c-test) 30%, transparent); }
+.nudge-body { padding: 11px 13px; flex: 1; min-width: 0; }
+.nudge-tag {
+  font-family: var(--font-display), sans-serif; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); margin-bottom: 4px;
+}
+.nudge-now .nudge-tag { color: var(--c-test); }
+.nudge-title { font-weight: 700; font-size: 15px; letter-spacing: -0.005em; }
+.nudge-detail { font-size: 13px; color: var(--ink2); margin-top: 3px; }
+.nudge-about { font-size: 11.5px; color: var(--ink3); margin-top: 6px; }
+.nudge-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.nudge-actions .btn { padding: 5px 11px; font-size: 12.5px; }
+
+.slots { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.slot {
+  appearance: none; cursor: pointer; text-align: left;
+  border: 1px solid var(--rule); background: var(--card); border-radius: 8px;
+  padding: 8px 11px; display: flex; align-items: baseline; gap: 10px; color: inherit;
+}
+.slot:hover { border-color: var(--ink3); }
+.slot-day { font-weight: 600; font-size: 13.5px; }
+.slot-time { font-size: 12.5px; color: var(--ink3); margin-left: auto; }
