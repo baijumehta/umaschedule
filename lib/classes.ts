@@ -7,7 +7,7 @@
  * runs period 2. So the block letter decides which three of her five classes
  * she actually has, and the bell schedule decides when.
  *
- *   Odd day   0 AP Calculus AB · 1 AP English Language · 3 French III Honors
+ *   Odd day   0 AP Calculus AB · 1 AP English Language · 3 French III Honors · 5 Lacrosse
  *   Even day  0 AP Calculus AB · 2 AP Biology          · 4 AP US History
  *
  * Bell times from canyonhighschool.org/about/bell-schedule. Two variants are
@@ -27,6 +27,13 @@ export interface SchoolClass {
   period: number;
   /** Zero period runs daily; the rest follow the block letter. */
   meets: "daily" | "odd" | "even";
+  /**
+   * This period is already produced by a rule of its own, so it must not also
+   * be emitted as a class. Period 5 is lacrosse: recording it here is what
+   * explains the 1:45 start on odd days, but the practice rule decides which
+   * days it actually happens — currently Mon/Wed/Thu, not every odd day.
+   */
+  ownRule?: boolean;
 }
 
 export const CLASSES: SchoolClass[] = [
@@ -35,6 +42,11 @@ export const CLASSES: SchoolClass[] = [
   { id: "bio",     name: "AP Biology",          short: "AP Bio",     period: 2, meets: "even" },
   { id: "french",  name: "French III Honors",   short: "French III", period: 3, meets: "odd" },
   { id: "ushist",  name: "AP US History",       short: "APUSH",      period: 4, meets: "even" },
+  // Period 5 is athletics, which is why odd-day practice starts at 1:45 on the
+  // dot: it is not after school at all, it is the 5/6 block. Nothing sits in
+  // period 6, so an even day ends after period 4 at 1:10.
+  { id: "lax",     name: "Lacrosse",           short: "Lacrosse",   period: 5, meets: "odd",
+    ownRule: true },
 ];
 
 /** Which paired block a period sits in. */
@@ -79,6 +91,7 @@ export function classesFor(date: ISODate): ClassOnDay[] {
   if (!info.school || !info.block) return [];
   const bells = bellsFor(date);
   return CLASSES
+    .filter((c) => !c.ownRule)
     .filter((c) => c.meets === "daily" || c.meets === info.block)
     .sort((a, b) => a.period - b.period)
     .map((c) => {
