@@ -551,3 +551,13 @@ code, .code {
    what was dropped rather than the afternoon just looking emptier. */
 .tl-skipped .tl-title, .ev-skipped .ev-title span { text-decoration: line-through; }
 .tl-skipped, .ev-skipped { opacity: 0.55; }
+
+/* A declined occurrence stays visible but plainly settled. */
+.tl-declined { color: var(--c-social); font-weight: 600; }
+
+/* The rail is an empty span, so it only has height while the row stretches.
+   The text columns align to the top themselves. */
+.tl { align-items: stretch; }
+.tl-time, .tl-main { align-self: start; }
+.tl-rail { align-self: stretch; }
+.tl .ev-edit { align-self: center; }

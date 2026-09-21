@@ -1,17 +1,20 @@
 "use client";
 
-import { classesFor, classById, displayTitle, whenLabel } from "@/lib/classes";
+import { classById, classesFor, displayTitle, whenLabel } from "@/lib/classes";
+import { nudgesFor } from "@/lib/guidance";
 import {
   addDays, breakSpan, collectRange, dayInfo, dow, DOW_NAMES, DOW_SHORT,
-  eventsFor, fmtDate, fmtRange, nextSchoolDay, TERM_END, toMinutes,
+  eventsFor, fmtDate, nextSchoolDay, toMinutes,
 } from "@/lib/schedule";
 import type { ISODate, PlannerEvent, StoredEvent } from "@/lib/types";
-import { nudgesFor } from "@/lib/guidance";
 import { BlockChip, CatDot } from "./bits";
 import { NudgeList } from "./NudgeList";
 
 /** How far ahead the "coming up" list looks for tests and deadlines. */
 const HORIZON_DAYS = 21;
+
+/** Classes do not count as commitments — they are not a choice. */
+const NOT_A_COMMITMENT = new Set(["class", "email"]);
 
 interface Props {
   today: ISODate;
@@ -31,42 +34,40 @@ interface Props {
 /**
  * The morning read.
  *
- * Ordered by what she can still act on: what is due or being tested today, then
- * which classes actually meet (the block letter decides), then the day's
- * timeline, then deadlines far enough out to still do something about.
+ * One stacked list per day, and each day appears exactly once. An earlier
+ * version summarised the next school day as a run-on sentence at the top and
+ * then listed the same day again below — two formats for one day, the worse of
+ * them first. Everything here is now a list with the time in its own column.
  */
 export function TodayView({
   today, events, doneNudges, skipped, onSkipped, onEdit, onAdd, onOpenWeek, onSave, onNudgeDone,
 }: Props) {
   const info = dayInfo(today);
-  const classes = classesFor(today);
-  const timed = eventsFor(today, events, { school: false, skipped }).filter((e) => !e.allDay);
-  const dueToday = eventsFor(today, events, { school: false, skipped }).filter(
+  const brk = breakSpan(today);
+
+  const todayItems = eventsFor(today, events, { school: false, skipped });
+  const dueToday = todayItems.filter(
     (e) => e.allDay && (e.cat === "test" || e.cat === "project") && !e.skipped,
   );
 
-  const upcoming = collectRange(addDays(today, 1), addDays(today, HORIZON_DAYS), events, {
-    school: false,
-    cats: ["test", "project"],
-  });
-
-  const nextDay = nextSchoolDay(info.school ? today : addDays(today, -1));
-  const showNext = nextDay && nextDay !== today;
-
-  // The next-school-day panel can jump over a weekend, so an 8am Sunday meeting
-  // would otherwise appear nowhere on the one screen she checks each morning.
+  // The next day worth showing: tomorrow when something is on it, otherwise
+  // the next school day — so a Friday briefing still reaches into Monday.
   const tomorrow = addDays(today, 1);
   const tomorrowItems = eventsFor(tomorrow, events, { school: false, skipped });
+  const ahead = tomorrowItems.length ? tomorrow : nextSchoolDay(today);
+  const aheadItems = ahead && ahead !== tomorrow
+    ? eventsFor(ahead, events, { school: false, skipped })
+    : tomorrowItems;
 
-  // Something she is not attending does not count against her afternoon.
-  const busyMinutes = timed
-    .filter((e) => !e.skipped)
-    .reduce((t, e) => t + (toMinutes(e.end) - toMinutes(e.start)), 0);
-  const brk = breakSpan(today);
+  const upcoming = collectRange(addDays(today, 1), addDays(today, HORIZON_DAYS), events, {
+    school: false, cats: ["test", "project"], skipped,
+  }).filter((ev) => !ev.skipped);
+
+  const nextDay = info.school ? null : nextSchoolDay(addDays(today, -1));
 
   return (
     <div className="brief">
-      {/* ---- the headline: what kind of day is this ---- */}
+      {/* ---- what kind of day is this ---- */}
       <section className="panel brief-head">
         <p className="eyebrow">{DOW_NAMES[dow(today)]}, {fmtDate(today, true)}</p>
         <h2>
@@ -77,21 +78,12 @@ export function TodayView({
           {info.school && info.min && <span className="chip chip-min">min day</span>}
         </h2>
 
-        {info.school ? (
-          <>
-            <p className="eyebrow" style={{ marginTop: 16 }}>Classes today</p>
-            <ul className="classlist">
-              {classes.map((c) => (
-                <li className="classrow" key={c.id}>
-                  <span className="period mono">{c.period}</span>
-                  <span className="classname">{c.name}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : showNext ? (
-          <NextUp date={nextDay!} events={events} onOpenWeek={onOpenWeek} />
-        ) : null}
+        {!info.school && nextDay && (
+          <p className="today-sub" style={{ marginTop: 10 }}>
+            Next school day is {DOW_NAMES[dow(nextDay)]}, {fmtDate(nextDay, true)}
+            {dayInfo(nextDay).school ? ` — ${dayInfo(nextDay).block} day` : ""}.
+          </p>
+        )}
       </section>
 
       {/* ---- what to act on, before what is merely scheduled ---- */}
@@ -104,10 +96,10 @@ export function TodayView({
         onSkipped={onSkipped}
       />
 
-      {/* ---- anything that needs attention right now ---- */}
+      {/* ---- due today, which a timeline row does not shout loudly enough ---- */}
       {dueToday.length > 0 && (
         <section className="panel">
-          <p className="eyebrow">Today</p>
+          <p className="eyebrow">Due today</p>
           {dueToday.map((ev) => (
             <div className="due due-now" key={ev.id}>
               <CatDot cat={ev.cat} />
@@ -117,9 +109,7 @@ export function TodayView({
                   {ev.cat === "test" ? "Test" : "Project due"}
                   {classById(ev.classId) && ` · ${whenLabel(ev)}`}
                   {classById(ev.classId) && !classesFor(today).some((c) => c.id === ev.classId) && (
-                    <span className="due-flag">
-                      {" · "}that class does not meet today
-                    </span>
+                    <span className="due-flag">{" · "}that class does not meet today</span>
                   )}
                 </div>
                 {ev.notes && <div className="due-notes">{ev.notes}</div>}
@@ -132,61 +122,26 @@ export function TodayView({
         </section>
       )}
 
-      {/* ---- the day itself ---- */}
-      <section className="panel">
-        <div className="brief-bar">
-          <p className="eyebrow" style={{ margin: 0 }}>
-            {info.school ? "After school" : "Today"}
-          </p>
-          <span className="brief-count mono">
-            {busyMinutes ? formatHours(busyMinutes) + " committed" : "nothing booked"}
-          </span>
-        </div>
-
-        {timed.length === 0 ? (
+      <DayList
+        label="Today"
+        date={today}
+        items={todayItems}
+        onEdit={onEdit}
+        empty={
           <p className="day-empty" style={{ padding: "4px 0 0" }}>
-            Nothing scheduled. <button className="linkish" onClick={() => onAdd(today)}>Add something</button>
+            Nothing scheduled.{" "}
+            <button className="linkish" onClick={() => onAdd(today)}>Add something</button>
           </p>
-        ) : (
-          <div className="timeline">
-            {timed.map((ev) => (
-              <div className={"tl" + (ev.skipped ? " tl-skipped" : "")} key={ev.id}>
-                <span className="tl-time mono">{fmtRange(ev.start, ev.end)}</span>
-                <span className="tl-rail" style={{ background: railFor(ev) }} />
-                <span className="tl-main">
-                  <span className="tl-title">{displayTitle(ev)}</span>
-                  {ev.skipped
-                    ? <span className="tl-loc">Not going</span>
-                    : ev.loc && <span className="tl-loc">{ev.loc}</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        }
+      />
 
-      {/* ---- tomorrow, which the next-school-day panel can skip past ---- */}
-      {tomorrowItems.length > 0 && (
-        <section className="panel">
-          <div className="brief-bar">
-            <p className="eyebrow" style={{ margin: 0 }}>Tomorrow</p>
-            <span className="brief-count mono">
-              {DOW_SHORT[dow(tomorrow)]} {fmtDate(tomorrow)}
-            </span>
-          </div>
-          <div className="timeline">
-            {tomorrowItems.map((ev) => (
-              <div className="tl" key={ev.id}>
-                <span className="tl-time mono">{whenLabel(ev)}</span>
-                <span className="tl-rail" style={{ background: railFor(ev) }} />
-                <span className="tl-main">
-                  <span className="tl-title">{displayTitle(ev)}</span>
-                  {ev.loc && <span className="tl-loc">{ev.loc}</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
+      {ahead && aheadItems.length > 0 && (
+        <DayList
+          label={ahead === tomorrow ? "Tomorrow" : DOW_NAMES[dow(ahead)]}
+          date={ahead}
+          items={aheadItems}
+          onEdit={onEdit}
+        />
       )}
 
       {/* ---- what is bearing down ---- */}
@@ -217,7 +172,9 @@ export function TodayView({
                     <span className="up-when mono">
                       {DOW_SHORT[dow(ev.date)]} {fmtDate(ev.date)}
                       {" · "}
-                      {dayInfo(ev.date).school ? `${dayInfo(ev.date).block} day` : dayInfo(ev.date).reason}
+                      {dayInfo(ev.date).school
+                        ? `${dayInfo(ev.date).block} day`
+                        : dayInfo(ev.date).reason}
                     </span>
                   </span>
                 </button>
@@ -230,41 +187,79 @@ export function TodayView({
   );
 }
 
-function NextUp({ date, events, onOpenWeek }: {
-  date: ISODate; events: StoredEvent[]; onOpenWeek: (d: ISODate) => void;
+/**
+ * One day, stacked: time in its own column, everything in start order.
+ *
+ * The same component renders today and the day ahead, so the two can never
+ * drift into different formats.
+ */
+function DayList({ label, date, items, onEdit, empty }: {
+  label: string;
+  date: ISODate;
+  items: PlannerEvent[];
+  onEdit: (sourceId: string) => void;
+  empty?: React.ReactNode;
 }) {
   const info = dayInfo(date);
-  const classes = classesFor(date);
-  const list = eventsFor(date, events, { school: false });
+  const committed = items
+    .filter((e) => !e.allDay && !e.skipped && !NOT_A_COMMITMENT.has(e.cat))
+    .reduce((t, e) => t + (toMinutes(e.end) - toMinutes(e.start)), 0);
 
   return (
-    <>
-      <p className="eyebrow" style={{ marginTop: 16 }}>Next school day</p>
-      <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>
-        {DOW_NAMES[dow(date)]}, {fmtDate(date, true)} <BlockChip info={info} />
-      </h3>
-      <ul className="classlist">
-        {classes.map((c) => (
-          <li className="classrow" key={c.id}>
-            <span className="period mono">{c.period}</span>
-            <span className="classname">{c.name}</span>
-          </li>
-        ))}
-      </ul>
-      {list.length > 0 && (
-        <p className="today-sub" style={{ marginTop: 10 }}>
-          {list.map((e) => (e.allDay ? displayTitle(e) : `${fmtRange(e.start, e.end)} ${e.title}`)).join("  ·  ")}
-        </p>
+    <section className="panel">
+      <div className="brief-bar">
+        <p className="eyebrow" style={{ margin: 0 }}>{label}</p>
+        <span className="brief-count mono">
+          {DOW_SHORT[dow(date)]} {fmtDate(date)}
+          {info.school ? ` · ${info.block}` : ""}
+          {committed ? ` · ${formatHours(committed)} booked` : ""}
+        </span>
+      </div>
+
+      {items.length === 0 ? (empty ?? null) : (
+        <div className="timeline">
+          {items.map((ev) => (
+            <div className={"tl" + (ev.skipped ? " tl-skipped" : "")} key={ev.id}>
+              <span className="tl-time mono">
+                {ev.allDay ? whenLabel(ev) : shortRange(ev)}
+              </span>
+              <span className="tl-rail" style={{ background: `var(--c-${ev.cat})` }} />
+              <span className="tl-main">
+                <span className="tl-title">{displayTitle(ev)}</span>
+                {ev.skipped
+                  ? <span className="tl-loc tl-declined">Not going</span>
+                  : ev.loc && <span className="tl-loc">{ev.loc}</span>}
+              </span>
+              {!ev.fixed && ev.sourceId && (
+                <button
+                  className="btn btn-ghost ev-edit"
+                  onClick={() => onEdit(ev.sourceId!)}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
-      <button className="linkish" style={{ marginTop: 10 }} onClick={() => onOpenWeek(date)}>
-        See that week
-      </button>
-    </>
+    </section>
   );
 }
 
-const railFor = (ev: PlannerEvent) =>
-  `var(--c-${ev.cat === "lax" ? "lax" : ev.cat})`;
+/** "1:45–3:45pm" — one suffix when both ends share it, so the column stays narrow. */
+function shortRange(ev: PlannerEvent): string {
+  const [sh] = ev.start.split(":").map(Number);
+  const [eh] = ev.end.split(":").map(Number);
+  const half = (h: number) => (h < 12 ? "am" : "pm");
+  const clock = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + (m ? ":" + String(m).padStart(2, "0") : "");
+  };
+  return half(sh) === half(eh)
+    ? `${clock(ev.start)}–${clock(ev.end)}${half(eh)}`
+    : `${clock(ev.start)}${half(sh)}–${clock(ev.end)}${half(eh)}`;
+}
 
 function formatHours(minutes: number): string {
   const hours = minutes / 60;
@@ -281,5 +276,3 @@ function daysBetween(a: ISODate, b: ISODate): number {
   }
   return n;
 }
-
-export { TERM_END };

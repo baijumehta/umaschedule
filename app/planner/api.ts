@@ -72,6 +72,13 @@ export const api = {
       body: JSON.stringify(ev),
     }).then((r) => r.event),
 
+  /** Which occurrences she has declined. Fetched with the same key as the
+   *  event list, so it cannot race the key being written to storage. */
+  decisions: (key?: string) =>
+    request<{ decisions: Array<{ occurrenceId: string; attending: boolean }> }>(
+      "/api/attendance", {}, key,
+    ).then((r) => r.decisions),
+
   remove: (id: string) =>
     request<{ removed: boolean }>(`/api/events/${encodeURIComponent(id)}`, {
       method: "DELETE",

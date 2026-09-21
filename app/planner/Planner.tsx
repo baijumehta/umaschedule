@@ -38,7 +38,9 @@ export function Planner({ today }: { today: ISODate }) {
 
   const load = useCallback(async (key?: string) => {
     try {
-      setEvents(await api.list(key));
+      const [list, decisions] = await Promise.all([api.list(key), api.decisions(key)]);
+      setEvents(list);
+      setSkipped(new Set(decisions.filter((d) => !d.attending).map((d) => d.occurrenceId)));
       setLoadError("");
       setAuthed(true);
     } catch (err) {
@@ -57,23 +59,6 @@ export function Planner({ today }: { today: ISODate }) {
     load().catch(() => { /* Handled by state above. */ });
   }, [load]);
 
-  // Decisions already recorded, so a resolved clash does not come back on reload.
-  useEffect(() => {
-    if (authed !== true) return;
-    let cancelled = false;
-    fetch("/api/attendance", { headers: { [HEADER]: readKey() }, cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => {
-        if (cancelled || !b?.decisions) return;
-        setSkipped(new Set(
-          (b.decisions as Array<{ occurrenceId: string; attending: boolean }>)
-            .filter((d) => !d.attending)
-            .map((d) => d.occurrenceId),
-        ));
-      })
-      .catch(() => { /* Clashes simply stay unresolved for this visit. */ });
-    return () => { cancelled = true; };
-  }, [authed]);
 
   async function unlock(key: string) {
     setGateBusy(true);
