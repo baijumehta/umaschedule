@@ -1,5 +1,5 @@
 import { hasHouseholdKey, refuse } from "@/lib/auth";
-import { clearNudge, markNudgeDone } from "@/lib/nudges";
+import { clearNudge, doneNudges, markNudgeDone } from "@/lib/nudges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +9,17 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
+
+/** Which reminders and clashes have already been dealt with. */
+export async function GET(req: Request) {
+  if (!hasHouseholdKey(req)) return refuse();
+  try {
+    return json({ done: [...(await doneNudges())] });
+  } catch (err) {
+    console.error("[api/nudges]", err);
+    return json({ error: "Could not reach the database." }, 500);
+  }
+}
 
 /** Ticking a nudge off, and undoing that. */
 export async function POST(req: Request) {

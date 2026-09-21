@@ -79,6 +79,11 @@ export const api = {
       "/api/attendance", {}, key,
     ).then((r) => r.decisions),
 
+  /** Reminders and clashes already dealt with. Loaded with everything else so
+   *  a settled clash does not reappear on the next page load. */
+  doneNudges: (key?: string) =>
+    request<{ done: string[] }>("/api/nudges", {}, key).then((r) => r.done),
+
   remove: (id: string) =>
     request<{ removed: boolean }>(`/api/events/${encodeURIComponent(id)}`, {
       method: "DELETE",

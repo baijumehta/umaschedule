@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { addDays, clampTerm, D, dow, mondayOf } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
-import { HEADER } from "@/lib/auth";
 import { api, NotAuthorized, readKey, writeKey } from "./api";
 import { CalendarPanel } from "./CalendarPanel";
 import { EventDialog } from "./EventDialog";
@@ -39,8 +38,11 @@ export function Planner({ today }: { today: ISODate }) {
 
   const load = useCallback(async (key?: string) => {
     try {
-      const [list, decisions] = await Promise.all([api.list(key), api.decisions(key)]);
+      const [list, decisions, done] = await Promise.all([
+        api.list(key), api.decisions(key), api.doneNudges(key),
+      ]);
       setEvents(list);
+      setDoneNudges(new Set(done));
       setSkipped(new Set(decisions.filter((d) => !d.attending).map((d) => d.occurrenceId)));
       setDecisionNotes(new Map(
         decisions.filter((d) => d.note).map((d) => [d.occurrenceId, d.note]),

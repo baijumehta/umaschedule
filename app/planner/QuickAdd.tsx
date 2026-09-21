@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HEADER } from "@/lib/auth";
 import { classById, whenLabel } from "@/lib/classes";
-import { CATEGORIES, DOW_SHORT, dow, fmtDate, fmtRange } from "@/lib/schedule";
+import { CATEGORIES, DOW_SHORT, dow, fmtDate } from "@/lib/schedule";
 import type { ISODate, StoredEvent } from "@/lib/types";
 import { readKey } from "./api";
 import { CatDot } from "./bits";

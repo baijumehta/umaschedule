@@ -560,10 +560,16 @@ code, .code {
 .tl { align-items: stretch; }
 .tl-time, .tl-main { align-self: start; }
 .tl-rail { align-self: stretch; }
-.tl .ev-edit { align-self: center; }
+/* The edit control must not set the row height, or rows that have one sit
+   twice as tall as rows that do not and the list reads ragged. */
+.tl .ev-edit { align-self: center; padding: 2px 8px; font-size: 12px; line-height: 1.4; }
 
 /* "Arriving late" — a kept commitment with a caveat, not a cancelled one. */
 .tl-late, .ev-late { color: var(--c-study); font-weight: 600; }
 .ev-declined { color: var(--c-social); font-weight: 600; }
 .clash-both { border-style: dashed; }
 .clash-both .clash-name { font-weight: 600; }
+
+/* A test or deadline sitting in the day list, rather than in a panel of its own. */
+.tl-kind { margin-left: 7px; vertical-align: 1px; }
+.tl-wrongday { color: var(--warn); font-weight: 600; }

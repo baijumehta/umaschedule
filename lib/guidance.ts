@@ -13,7 +13,7 @@
  * these; it never decides what they are.
  */
 
-import { classById, displayTitle } from "./classes";
+import { classById } from "./classes";
 import { conflictsBetween, describeConflict, type Conflict } from "./conflicts";
 import {
   addDays, dayInfo, dow, DOW_SHORT, eventsFor, fmtDate, fmtTime, toMinutes,

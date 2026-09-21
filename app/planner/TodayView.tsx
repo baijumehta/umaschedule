@@ -36,10 +36,14 @@ interface Props {
 /**
  * The morning read.
  *
- * One stacked list per day, and each day appears exactly once. An earlier
- * version summarised the next school day as a run-on sentence at the top and
- * then listed the same day again below — two formats for one day, the worse of
- * them first. Everything here is now a list with the time in its own column.
+ * The day itself leads: it is what she opens this for, and it should be the
+ * first thing on the screen rather than something to scroll past guidance to
+ * reach. What to do about the day follows it.
+ *
+ * One stacked list per day, and each day appears exactly once. Tests and
+ * deadlines sit in that list rather than in a panel of their own — they have
+ * real times now, so a separate "due today" box was a third place to say the
+ * same thing.
  */
 export function TodayView({
   today, events, doneNudges, skipped, notes, onSkipped, onEdit, onAdd, onOpenWeek, onSave,
@@ -49,9 +53,6 @@ export function TodayView({
   const brk = breakSpan(today);
 
   const todayItems = eventsFor(today, events, { school: false, skipped, notes });
-  const dueToday = todayItems.filter(
-    (e) => e.allDay && (e.cat === "test" || e.cat === "project") && !e.skipped,
-  );
 
   // The next day worth showing: tomorrow when something is on it, otherwise
   // the next school day — so a Friday briefing still reaches into Monday.
@@ -89,42 +90,6 @@ export function TodayView({
         )}
       </section>
 
-      {/* ---- what to act on, before what is merely scheduled ---- */}
-      <NudgeList
-        today={today}
-        nudges={nudgesFor(today, events, doneNudges, skipped)}
-        events={events}
-        onSave={onSave}
-        onDone={onNudgeDone}
-        onSkipped={onSkipped}
-      />
-
-      {/* ---- due today, which a timeline row does not shout loudly enough ---- */}
-      {dueToday.length > 0 && (
-        <section className="panel">
-          <p className="eyebrow">Due today</p>
-          {dueToday.map((ev) => (
-            <div className="due due-now" key={ev.id}>
-              <CatDot cat={ev.cat} />
-              <div>
-                <div className="due-title">{displayTitle(ev)}</div>
-                <div className="due-meta">
-                  {ev.cat === "test" ? "Test" : "Project due"}
-                  {classById(ev.classId) && ` · ${whenLabel(ev)}`}
-                  {classById(ev.classId) && !classesFor(today).some((c) => c.id === ev.classId) && (
-                    <span className="due-flag">{" · "}that class does not meet today</span>
-                  )}
-                </div>
-                {ev.notes && <div className="due-notes">{ev.notes}</div>}
-              </div>
-              {ev.sourceId && (
-                <button className="btn btn-ghost" onClick={() => onEdit(ev.sourceId!)}>Edit</button>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
       <DayList
         label="Today"
         date={today}
@@ -146,6 +111,16 @@ export function TodayView({
           onEdit={onEdit}
         />
       )}
+
+      {/* ---- then what to do about it ---- */}
+      <NudgeList
+        today={today}
+        nudges={nudgesFor(today, events, doneNudges, skipped)}
+        events={events}
+        onSave={onSave}
+        onDone={onNudgeDone}
+        onSkipped={onSkipped}
+      />
 
       {/* ---- what is bearing down ---- */}
       <section className="panel">
@@ -228,13 +203,32 @@ function DayList({ label, date, items, onEdit, empty }: {
               </span>
               <span className="tl-rail" style={{ background: `var(--c-${ev.cat})` }} />
               <span className="tl-main">
-                <span className="tl-title">{displayTitle(ev)}</span>
+                <span className="tl-title">
+                  {displayTitle(ev)}
+                  {(ev.cat === "test" || ev.cat === "project") && (
+                    <span
+                      className="tag tl-kind"
+                      style={{
+                        background: `var(--c-${ev.cat}-bg)`,
+                        color: `var(--c-${ev.cat})`,
+                      }}
+                    >
+                      {ev.cat === "test" ? "test" : "due"}
+                    </span>
+                  )}
+                </span>
                 {ev.skipped
                   ? <span className="tl-loc tl-declined">Not going</span>
                   : ev.loc && <span className="tl-loc">{ev.loc}</span>}
                 {ev.decisionNote && !ev.skipped && (
                   <span className="tl-loc tl-late">{ev.decisionNote}</span>
                 )}
+                {classById(ev.classId) && (ev.cat === "test" || ev.cat === "project") &&
+                  !classesFor(date).some((c) => c.id === ev.classId) && (
+                    <span className="tl-loc tl-wrongday">
+                      That class does not meet this day
+                    </span>
+                  )}
               </span>
               {!ev.fixed && ev.sourceId && (
                 <button
