@@ -117,7 +117,7 @@ export function buildIcs(events: PlannerEvent[], opts: IcsOptions = {}): string 
     if (ev.notes) lines.push(fold("DESCRIPTION:" + escapeText(ev.notes)));
     lines.push(fold("CATEGORIES:" + escapeText(CATEGORIES[ev.cat].label)));
 
-    if (opts.alarms && !ev.allDay) {
+    if (opts.alarms && !ev.allDay && ev.cat !== "class" && ev.cat !== "email") {
       lines.push(
         "BEGIN:VALARM",
         "TRIGGER:-PT30M",

@@ -234,6 +234,10 @@ export function nudgesFor(
       ) => {
         for (const step of steps) {
           if (away > step.daysBefore) continue;
+          // Prep is for beforehand. On the day itself the event is already on
+          // the schedule, and a step written as "tomorrow" or "tonight" is
+          // simply wrong by then.
+          if (away === 0) continue;
           const id = `${tag}:${key}:${step.daysBefore}`;
           if (done.has(id)) continue;
           // Escalating reminders of the same task collapse to the tightest one,

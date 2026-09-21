@@ -14,6 +14,7 @@ export type Category =
   | "test"
   | "project"
   | "email"
+  | "class"
   | "school"
   | "other";
 

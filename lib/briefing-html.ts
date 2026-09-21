@@ -147,7 +147,9 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
       `<span style="display:inline-block;background:#f4e9cc;color:${GOLD};
         font:600 11px/1 Arial,Helvetica,sans-serif;padding:4px 7px;border-radius:3px">
         Period ${c.period}</span>`,
-      esc(c.name),
+      esc(c.name) +
+        `<div style="font:400 12px/1.45 Arial,Helvetica,sans-serif;color:${MUTED};padding-top:2px">` +
+        `${esc(fmtRange(c.start, c.end))}</div>`,
     )).join("")));
   }
 

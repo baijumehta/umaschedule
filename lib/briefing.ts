@@ -15,7 +15,7 @@ import type { ISODate, PlannerEvent, StoredEvent } from "./types";
  */
 
 /** The 7:45 inbox sweep is a habit, not news — noise in a digest. */
-const SKIP = new Set(["email"]);
+const SKIP = new Set(["email", "class"]);
 
 const shortTime = (t: string) => fmtTime(t).replace("am", "a").replace("pm", "p");
 
@@ -25,7 +25,7 @@ export interface Briefing {
   /** "odd day", "Thanksgiving break". */
   kind: string;
   minDay: boolean;
-  classes: Array<{ period: number; name: string; short: string }>;
+  classes: Array<{ period: number; name: string; short: string; start: string; end: string }>;
   nudges: Nudge[];
   schedule: PlannerEvent[];
   coming: Array<{ ev: PlannerEvent; days: number }>;
@@ -55,7 +55,9 @@ export function buildBriefing(
     heading: `${DOW_SHORT[dow(date)]} ${fmtDate(date)}`,
     kind: info.school ? `${info.block} day` : info.reason ?? "No school",
     minDay: Boolean(info.school && info.min),
-    classes: classesFor(date).map((c) => ({ period: c.period, name: c.name, short: c.short })),
+    classes: classesFor(date).map((c) => ({
+      period: c.period, name: c.name, short: c.short, start: c.start, end: c.end,
+    })),
     // Nudges are computed for the day being briefed, which is why the evening
     // send still catches a "tomorrow" step.
     nudges: nudgesFor(date, events, opts.done, opts.skipped).slice(0, 7),
@@ -96,7 +98,10 @@ export function briefingText(
 
   if (b.classes.length) {
     lines.push("");
-    lines.push("Classes: " + b.classes.map((c) => `${c.period} ${c.short}`).join(", "));
+    lines.push("CLASSES:");
+    for (const c of b.classes) {
+      lines.push(`${shortTime(c.start)} ${c.short} (p${c.period})`);
+    }
   }
 
   const timed = b.schedule.filter((e) => !e.allDay);

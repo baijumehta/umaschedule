@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALL: Category[] = [
-  "lax", "piano", "math", "act", "study", "social", "test", "project", "email", "other",
+  "lax", "piano", "math", "act", "study", "social", "test", "project",
+  "class", "email", "other",
 ];
 
 /**

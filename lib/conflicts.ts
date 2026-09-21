@@ -33,6 +33,19 @@ const overlap = (a: PlannerEvent, b: PlannerEvent) =>
   toMinutes(a.start) < toMinutes(b.end) && toMinutes(b.start) < toMinutes(a.end);
 
 /**
+ * A test sits inside its own class period by design, so the two share a slot
+ * without clashing. Anything *else* landing during a lesson genuinely does
+ * clash, and is now worth saying — which only became possible once the bell
+ * schedule was known.
+ */
+const sameSubject = (a: PlannerEvent, b: PlannerEvent): boolean => {
+  const pair = [a, b];
+  const cls = pair.find((e) => e.cat === "class");
+  const other = pair.find((e) => e.cat !== "class");
+  return Boolean(cls && other && other.classId && other.classId === cls.classId);
+};
+
+/**
  * Overlapping clusters on one day.
  *
  * Skipped occurrences are excluded before comparing, so choosing one side of a
@@ -49,7 +62,8 @@ export function conflictsOn(
 
   const clusters: PlannerEvent[][] = [];
   for (const ev of timed) {
-    const joined = clusters.find((c) => c.some((other) => overlap(other, ev)));
+    const joined = clusters.find((c) =>
+      c.some((other) => overlap(other, ev) && !sameSubject(other, ev)));
     if (joined) joined.push(ev);
     else clusters.push([ev]);
   }

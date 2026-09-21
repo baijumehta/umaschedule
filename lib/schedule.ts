@@ -11,6 +11,7 @@
  * truth for what an odd Wednesday means.
  */
 
+import { classEventsFor, classTimeOn } from "./classes";
 import type { Category, DayInfo, ISODate, PlannerEvent, StoredEvent } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -134,6 +135,7 @@ export const CATEGORIES: Record<Category, { label: string; cssVar: string }> = {
   test: { label: "Test", cssVar: "--c-test" },
   project: { label: "Project", cssVar: "--c-project" },
   email: { label: "Email check", cssVar: "--c-email" },
+  class: { label: "Class", cssVar: "--c-class" },
   school: { label: "School", cssVar: "--c-school" },
   other: { label: "Other", cssVar: "--c-other" },
 };
@@ -358,10 +360,19 @@ export function customFor(date: ISODate, items: StoredEvent[]): PlannerEvent[] {
     } else if (ev.date !== date) {
       continue;
     }
+    // A test sits inside its class period rather than across the whole day.
+    // If the class does not meet that day it stays all-day, so the wrong-day
+    // warning still has something to point at.
+    const period = ev.cat === "test" && ev.classId ? classTimeOn(ev.classId, date) : null;
+
     out.push({
       id: ev.id + "-" + date, sourceId: ev.id, date, cat: ev.cat, title: ev.title,
-      start: ev.start, end: ev.end, loc: ev.loc ?? "", notes: ev.notes ?? "",
-      fixed: false, allDay: Boolean(ev.allDay), classId: ev.classId ?? "",
+      start: period ? period.start : ev.start,
+      end: period ? period.end : ev.end,
+      loc: ev.loc ?? "", notes: ev.notes ?? "",
+      fixed: false,
+      allDay: period ? false : Boolean(ev.allDay),
+      classId: ev.classId ?? "",
     });
   }
   return out;
@@ -375,6 +386,7 @@ export function eventsFor(
 ): PlannerEvent[] {
   const includeSchool = opts.school !== false;
   const list = [
+    ...classEventsFor(date),
     ...fixedFor(date),
     ...customFor(date, items),
     ...(includeSchool ? schoolMarkers(date) : []),

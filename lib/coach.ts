@@ -41,7 +41,10 @@ function describe(b: Briefing, freeEvenings: string[]): string {
   lines.push(`Day: ${b.heading}, ${b.kind}${b.minDay ? ", minimum day" : ""}`);
 
   if (b.classes.length) {
-    lines.push(`Classes: ${b.classes.map((c) => `period ${c.period} ${c.name}`).join(", ")}`);
+    lines.push("Classes today:");
+    for (const c of b.classes) {
+      lines.push(`  - period ${c.period} ${c.name}, ${fmtRange(c.start, c.end)}`);
+    }
   }
 
   if (b.nudges.length) {

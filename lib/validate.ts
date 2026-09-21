@@ -4,7 +4,7 @@ import type { Category, StoredEvent } from "./types";
 
 const CATEGORY_VALUES: Category[] = [
   "lax", "piano", "math", "act", "study", "social", "test", "project",
-  "email", "school", "other",
+  "email", "class", "school", "other",
 ];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
