@@ -15,7 +15,7 @@ interface Props {
   events: StoredEvent[];
   onSave: (ev: StoredEvent) => Promise<void> | void;
   onDone: (id: string) => void;
-  onSkipped: (ids: string[]) => void;
+  onSkipped: (ids: string[], notes: Record<string, string>) => void;
 }
 
 const LABEL: Record<Nudge["urgency"], string> = {
@@ -80,7 +80,7 @@ function NudgeRow({
   onToggleSlots: () => void;
   onSave: (ev: StoredEvent) => Promise<void>;
   onDone: (id: string) => void;
-  onSkipped: (ids: string[]) => void;
+  onSkipped: (ids: string[], notes: Record<string, string>) => void;
 }) {
   const minutes = nudge.suggestStudyMinutes ?? 0;
 
@@ -139,7 +139,8 @@ function NudgeRow({
         {nudge.conflict && (
           <ConflictChoice
             conflict={nudge.conflict}
-            onResolved={(ids) => { onSkipped(ids); onDone(nudge.id); }}
+            nudgeId={nudge.id}
+            onResolved={(ids, notes) => { onSkipped(ids, notes); onDone(nudge.id); }}
           />
         )}
 

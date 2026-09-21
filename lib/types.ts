@@ -61,6 +61,8 @@ export interface PlannerEvent {
   classId?: string;
   /** She has said she is not attending this occurrence. Shown, not deleted. */
   skipped?: boolean;
+  /** A note attached to that decision — "arriving late", and the like. */
+  decisionNote?: string;
 }
 
 export interface DayInfo {

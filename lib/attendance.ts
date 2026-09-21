@@ -26,6 +26,18 @@ export async function skippedOccurrences(): Promise<Set<string>> {
   return new Set((rows as Array<{ occurrence_id: string }>).map((r) => String(r.occurrence_id)));
 }
 
+/** Notes attached to decisions, by occurrence — "arriving late" and such. */
+export async function attendanceNotes(): Promise<Map<string, string>> {
+  const sql = client();
+  const rows = await sql`
+    select occurrence_id, note from attendance where note <> ''
+  `;
+  return new Map(
+    (rows as Array<{ occurrence_id: string; note: string }>)
+      .map((r) => [String(r.occurrence_id), String(r.note)]),
+  );
+}
+
 export async function listDecisions(): Promise<Decision[]> {
   const sql = client();
   const rows = await sql`

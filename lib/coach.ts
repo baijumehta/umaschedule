@@ -32,7 +32,9 @@ const SYSTEM = [
   "- No praise for things she has not done, and no lecturing.",
   "- If the day is genuinely quiet, say so briefly. Do not manufacture urgency.",
   "- Never tell her to resolve a clash she has already decided. An item marked",
-  "  NOT GOING is settled; treat that time as free.",
+  "  NOT GOING is settled; treat that time as free. An item marked ALREADY DECIDED",
+  "  is settled too — she is going, on the terms in the note. Do not re-open it or",
+  "  ask her to choose; at most, say what it means for the rest of the day.",
   "- If nothing useful can be added, reply with exactly: NOTHING",
 ].join("\n");
 
@@ -57,7 +59,8 @@ function describe(b: Briefing, freeEvenings: string[]): string {
     for (const ev of b.schedule) {
       const when = ev.allDay ? "all day" : fmtRange(ev.start, ev.end);
       const declined = ev.skipped ? " [SHE IS NOT GOING TO THIS - already decided]" : "";
-      lines.push(`  - ${when}: ${displayTitle(ev)}${ev.loc ? ` at ${ev.loc}` : ""}${ev.notes ? ` (${ev.notes})` : ""}${declined}`);
+      const decided = ev.decisionNote ? ` [ALREADY DECIDED: ${ev.decisionNote}]` : "";
+      lines.push(`  - ${when}: ${displayTitle(ev)}${ev.loc ? ` at ${ev.loc}` : ""}${ev.notes ? ` (${ev.notes})` : ""}${declined}${decided}`);
     }
   } else {
     lines.push("On the day: nothing scheduled");

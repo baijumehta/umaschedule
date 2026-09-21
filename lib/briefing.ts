@@ -38,10 +38,13 @@ export interface Briefing {
 export function buildBriefing(
   date: ISODate,
   events: StoredEvent[],
-  opts: { done?: Set<string>; horizonDays?: number; skipped?: Set<string> } = {},
+  opts: {
+    done?: Set<string>; horizonDays?: number;
+    skipped?: Set<string>; notes?: Map<string, string>;
+  } = {},
 ): Briefing {
   const info = dayInfo(date);
-  const all = eventsFor(date, events, { school: false, skipped: opts.skipped })
+  const all = eventsFor(date, events, { school: false, skipped: opts.skipped, notes: opts.notes })
     .filter((e) => !SKIP.has(e.cat));
 
   const coming = collectRange(addDays(date, 1), addDays(date, opts.horizonDays ?? 10), events, {
@@ -64,7 +67,8 @@ export function buildBriefing(
     // Declined occurrences still appear on the day, struck through, so it is
     // obvious what was dropped rather than the afternoon just looking empty.
     schedule: all,
-    conflicts: conflictsOn(date, events, opts.skipped ?? new Set()),
+    conflicts: conflictsOn(date, events, opts.skipped ?? new Set())
+      .filter((c) => !opts.done?.has(c.id)),
     coming,
   };
 }
@@ -83,9 +87,14 @@ function between(a: ISODate, b: ISODate): number {
 export function briefingText(
   date: ISODate,
   events: StoredEvent[],
-  opts: { done?: Set<string>; coaching?: string; skipped?: Set<string> } = {},
+  opts: {
+    done?: Set<string>; coaching?: string;
+    skipped?: Set<string>; notes?: Map<string, string>;
+  } = {},
 ): string {
-  const b = buildBriefing(date, events, { done: opts.done, skipped: opts.skipped });
+  const b = buildBriefing(date, events, {
+    done: opts.done, skipped: opts.skipped, notes: opts.notes,
+  });
   const lines: string[] = [];
 
   lines.push(`Uma · ${b.heading} · ${b.kind.toUpperCase()}${b.minDay ? " · MIN DAY" : ""}`);
@@ -113,7 +122,7 @@ export function briefingText(
     lines.push(`${label}: ${displayTitle(ev)}${where}${ev.notes ? ` — ${ev.notes}` : ""}`);
   }
   for (const ev of timed) {
-    const mark = ev.skipped ? " (not going)" : "";
+    const mark = ev.skipped ? " (not going)" : ev.decisionNote ? ` — ${ev.decisionNote}` : "";
     lines.push(`${shortTime(ev.start)} ${ev.title}${ev.loc ? ` (${ev.loc})` : ""}${mark}`);
   }
   if (!b.schedule.length) {

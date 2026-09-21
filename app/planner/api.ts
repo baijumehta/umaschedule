@@ -75,7 +75,7 @@ export const api = {
   /** Which occurrences she has declined. Fetched with the same key as the
    *  event list, so it cannot race the key being written to storage. */
   decisions: (key?: string) =>
-    request<{ decisions: Array<{ occurrenceId: string; attending: boolean }> }>(
+    request<{ decisions: Array<{ occurrenceId: string; attending: boolean; note: string }> }>(
       "/api/attendance", {}, key,
     ).then((r) => r.decisions),
 

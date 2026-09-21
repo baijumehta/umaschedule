@@ -23,7 +23,9 @@ interface Props {
   doneNudges: Set<string>;
   /** Occurrences she has declined. */
   skipped: Set<string>;
-  onSkipped: (ids: string[]) => void;
+  /** Notes attached to decisions, by occurrence. */
+  notes: Map<string, string>;
+  onSkipped: (ids: string[], notes: Record<string, string>) => void;
   onEdit: (sourceId: string) => void;
   onAdd: (date: ISODate) => void;
   onOpenWeek: (date: ISODate) => void;
@@ -40,12 +42,13 @@ interface Props {
  * them first. Everything here is now a list with the time in its own column.
  */
 export function TodayView({
-  today, events, doneNudges, skipped, onSkipped, onEdit, onAdd, onOpenWeek, onSave, onNudgeDone,
+  today, events, doneNudges, skipped, notes, onSkipped, onEdit, onAdd, onOpenWeek, onSave,
+  onNudgeDone,
 }: Props) {
   const info = dayInfo(today);
   const brk = breakSpan(today);
 
-  const todayItems = eventsFor(today, events, { school: false, skipped });
+  const todayItems = eventsFor(today, events, { school: false, skipped, notes });
   const dueToday = todayItems.filter(
     (e) => e.allDay && (e.cat === "test" || e.cat === "project") && !e.skipped,
   );
@@ -53,10 +56,10 @@ export function TodayView({
   // The next day worth showing: tomorrow when something is on it, otherwise
   // the next school day — so a Friday briefing still reaches into Monday.
   const tomorrow = addDays(today, 1);
-  const tomorrowItems = eventsFor(tomorrow, events, { school: false, skipped });
+  const tomorrowItems = eventsFor(tomorrow, events, { school: false, skipped, notes });
   const ahead = tomorrowItems.length ? tomorrow : nextSchoolDay(today);
   const aheadItems = ahead && ahead !== tomorrow
-    ? eventsFor(ahead, events, { school: false, skipped })
+    ? eventsFor(ahead, events, { school: false, skipped, notes })
     : tomorrowItems;
 
   const upcoming = collectRange(addDays(today, 1), addDays(today, HORIZON_DAYS), events, {
@@ -229,6 +232,9 @@ function DayList({ label, date, items, onEdit, empty }: {
                 {ev.skipped
                   ? <span className="tl-loc tl-declined">Not going</span>
                   : ev.loc && <span className="tl-loc">{ev.loc}</span>}
+                {ev.decisionNote && !ev.skipped && (
+                  <span className="tl-loc tl-late">{ev.decisionNote}</span>
+                )}
               </span>
               {!ev.fixed && ev.sourceId && (
                 <button

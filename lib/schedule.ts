@@ -382,7 +382,7 @@ export function customFor(date: ISODate, items: StoredEvent[]): PlannerEvent[] {
 export function eventsFor(
   date: ISODate,
   items: StoredEvent[],
-  opts: { school?: boolean; skipped?: Set<string> } = {},
+  opts: { school?: boolean; skipped?: Set<string>; notes?: Map<string, string> } = {},
 ): PlannerEvent[] {
   const includeSchool = opts.school !== false;
   const list = [
@@ -392,9 +392,14 @@ export function eventsFor(
     ...(includeSchool ? schoolMarkers(date) : []),
   ];
   // A declined occurrence is marked, not removed: she should still be able to
-  // see what she opted out of, and change her mind.
-  const marked = opts.skipped
-    ? list.map((ev) => (opts.skipped!.has(ev.id) ? { ...ev, skipped: true } : ev))
+  // see what she opted out of, and change her mind. A decision can also carry
+  // a note — "doing both, arriving late" — which rides along the same way.
+  const marked = (opts.skipped || opts.notes)
+    ? list.map((ev) => {
+        const skipped = opts.skipped?.has(ev.id) ?? false;
+        const decisionNote = opts.notes?.get(ev.id);
+        return skipped || decisionNote ? { ...ev, skipped, decisionNote } : ev;
+      })
     : list;
 
   return marked.sort((a, b) => {
@@ -409,14 +414,16 @@ export function collectRange(
   from: ISODate,
   to: ISODate,
   items: StoredEvent[],
-  opts: { school?: boolean; cats?: Category[]; skipped?: Set<string> } = {},
+  opts: { school?: boolean; cats?: Category[]; skipped?: Set<string>; notes?: Map<string, string> } = {},
 ): PlannerEvent[] {
   const start = clampTerm(from);
   const end = clampTerm(to);
   if (end < start) return [];
   const out: PlannerEvent[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) {
-    for (const ev of eventsFor(d, items, { school: opts.school, skipped: opts.skipped })) {
+    for (const ev of eventsFor(d, items, {
+      school: opts.school, skipped: opts.skipped, notes: opts.notes,
+    })) {
       if (ev.cat === "school") {
         if (opts.school !== false) out.push(ev);
       } else if (!opts.cats || opts.cats.includes(ev.cat)) {

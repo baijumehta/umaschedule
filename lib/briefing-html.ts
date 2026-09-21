@@ -163,7 +163,10 @@ export function briefingHtml(b: Briefing, appUrl?: string): string {
         ? `<span style="text-decoration:line-through;color:${MUTED}">${esc(displayTitle(ev))}</span>`
           + `<span style="color:${MUTED};font-weight:400"> — not going</span>`
         : esc(displayTitle(ev));
-      const extra = [ev.loc, ev.notes].filter(Boolean).map(esc).join(" &middot; ");
+      const extra = [ev.loc, ev.notes, ev.decisionNote]
+        .filter((x): x is string => Boolean(x))
+        .map(esc)
+        .join(" &middot; ");
       return row(
         when,
         title + (extra

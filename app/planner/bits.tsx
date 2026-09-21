@@ -47,8 +47,11 @@ export function EventRow({ ev, onEdit }: { ev: PlannerEvent; onEdit?: (sourceId:
           )}
         </div>
         {ev.skipped
-          ? <div className="ev-loc">Not going</div>
+          ? <div className="ev-loc ev-declined">Not going</div>
           : ev.loc && <div className="ev-loc">{ev.loc}</div>}
+        {ev.decisionNote && !ev.skipped && (
+          <div className="ev-loc ev-late">{ev.decisionNote}</div>
+        )}
         {ev.notes && <div className="ev-notes">{ev.notes}</div>}
       </div>
       {!ev.fixed && onEdit ? (

@@ -561,3 +561,9 @@ code, .code {
 .tl-time, .tl-main { align-self: start; }
 .tl-rail { align-self: stretch; }
 .tl .ev-edit { align-self: center; }
+
+/* "Arriving late" — a kept commitment with a caveat, not a cancelled one. */
+.tl-late, .ev-late { color: var(--c-study); font-weight: 600; }
+.ev-declined { color: var(--c-social); font-weight: 600; }
+.clash-both { border-style: dashed; }
+.clash-both .clash-name { font-weight: 600; }

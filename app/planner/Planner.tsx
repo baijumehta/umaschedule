@@ -31,6 +31,7 @@ export function Planner({ today }: { today: ISODate }) {
 
   const [doneNudges, setDoneNudges] = useState<Set<string>>(new Set());
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [decisionNotes, setDecisionNotes] = useState<Map<string, string>>(new Map());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StoredEvent | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -41,6 +42,9 @@ export function Planner({ today }: { today: ISODate }) {
       const [list, decisions] = await Promise.all([api.list(key), api.decisions(key)]);
       setEvents(list);
       setSkipped(new Set(decisions.filter((d) => !d.attending).map((d) => d.occurrenceId)));
+      setDecisionNotes(new Map(
+        decisions.filter((d) => d.note).map((d) => [d.occurrenceId, d.note]),
+      ));
       setLoadError("");
       setAuthed(true);
     } catch (err) {
@@ -194,13 +198,19 @@ export function Planner({ today }: { today: ISODate }) {
               today={today} events={events}
               doneNudges={doneNudges}
               skipped={skipped}
-              onSkipped={(ids) =>
+              notes={decisionNotes}
+              onSkipped={(ids, noteMap) => {
                 setSkipped((prev) => {
                   const next = new Set(prev);
                   for (const id of ids) next.add(id);
                   return next;
-                })
-              }
+                });
+                setDecisionNotes((prev) => {
+                  const next = new Map(prev);
+                  for (const [id, note] of Object.entries(noteMap)) next.set(id, note);
+                  return next;
+                });
+              }}
               onEdit={openEdit}
               onAdd={(d) => openAdd(d)}
               onOpenWeek={jumpToDay}
@@ -217,7 +227,8 @@ export function Planner({ today }: { today: ISODate }) {
 
         {tab === "week" && (
           <WeekView
-            weekStart={weekStart} today={today} events={events} skipped={skipped}
+            weekStart={weekStart} today={today} events={events}
+            skipped={skipped} notes={decisionNotes}
             onShift={(n) => setWeekStart((w) => addDays(w, n * 7))}
             onToday={() => setWeekStart(mondayOf(clampTerm(today)))}
             onEdit={openEdit}
